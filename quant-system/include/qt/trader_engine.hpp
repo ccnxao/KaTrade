@@ -1,22 +1,28 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "qt/agents.hpp"
+#include "qt/event_bus.hpp"
 #include "qt/execution.hpp"
+#include "qt/oms.hpp"
 #include "qt/portfolio.hpp"
 #include "qt/risk.hpp"
 
 namespace qt {
 
 struct CycleResult {
+    std::size_t cycle_index{};
+    std::string cycle_label;
     FeatureFrame features;
     RegimeState regime;
     std::vector<Signal> signals;
     TargetPortfolio target_portfolio;
     RiskDecision risk_decision;
     std::vector<OrderIntent> orders;
+    std::vector<OrderRecord> order_records;
     std::vector<ExecutionReport> reports;
 };
 
@@ -27,10 +33,11 @@ public:
                  std::unique_ptr<IPortfolioOptimizer> optimizer,
                  std::unique_ptr<RiskAgent> risk_agent,
                  std::unique_ptr<IExecutionAlgo> execution_algo,
-                 std::unique_ptr<IBrokerGateway> broker_gateway,
-                 double account_equity);
+                 std::unique_ptr<OrderManagementSystem> order_management_system,
+                 double account_equity,
+                 EventBus* event_bus = nullptr);
 
-    CycleResult run_cycle(const std::vector<Bar>& bars);
+    CycleResult run_cycle(const std::vector<Bar>& bars, std::string cycle_label = {});
     const PortfolioSnapshot& portfolio() const noexcept;
 
 private:
@@ -43,10 +50,11 @@ private:
     std::unique_ptr<IPortfolioOptimizer> optimizer_;
     std::unique_ptr<RiskAgent> risk_agent_;
     std::unique_ptr<IExecutionAlgo> execution_algo_;
-    std::unique_ptr<IBrokerGateway> broker_gateway_;
+    std::unique_ptr<OrderManagementSystem> order_management_system_;
     PortfolioSnapshot portfolio_;
     double account_equity_;
     std::size_t cycle_id_{0};
+    EventBus* event_bus_;
 };
 
 }  // namespace qt

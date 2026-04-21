@@ -1,8 +1,12 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <vector>
 
+#include "qt/backtest_engine.hpp"
+#include "qt/event_bus.hpp"
+#include "qt/oms.hpp"
 #include "qt/trader_engine.hpp"
 
 namespace {
@@ -15,6 +19,14 @@ std::vector<qt::Bar> trending_snapshot() {
     };
 }
 
+std::vector<qt::Bar> rotational_snapshot() {
+    return {
+        {{"AAPL", "NASDAQ"}, 186.5, 188.0, 183.5, 184.0, 2'300'000.0},
+        {{"MSFT", "NASDAQ"}, 420.0, 425.0, 415.0, 417.5, 2'400'000.0},
+        {{"GLD", "ARCA"}, 213.8, 216.0, 213.4, 215.1, 1'050'000.0},
+    };
+}
+
 std::vector<qt::Bar> crisis_snapshot() {
     return {
         {{"AAPL", "NASDAQ"}, 186.5, 187.0, 168.0, 171.0, 4'100'000.0},
@@ -23,8 +35,8 @@ std::vector<qt::Bar> crisis_snapshot() {
     };
 }
 
-void print_cycle(const std::string& label, const qt::CycleResult& result) {
-    std::cout << "\n=== " << label << " ===\n";
+void print_cycle(const qt::CycleResult& result) {
+    std::cout << "\n=== " << result.cycle_label << " ===\n";
     std::cout << "Regime: " << qt::to_string(result.regime.regime)
               << " (confidence=" << std::fixed << std::setprecision(2)
               << result.regime.confidence << ")\n";
@@ -49,12 +61,13 @@ void print_cycle(const std::string& label, const qt::CycleResult& result) {
                   << " weight=" << position.target_weight << "\n";
     }
 
-    std::cout << "Orders:\n";
-    for (const auto& order : result.orders) {
-        std::cout << "  - " << qt::to_string(order.side)
-                  << " " << order.quantity
-                  << " of " << qt::instrument_key(order.instrument)
-                  << " @ ref " << order.reference_price << "\n";
+    std::cout << "OMS records:\n";
+    for (const auto& record : result.order_records) {
+        std::cout << "  - " << record.order_id
+                  << " " << qt::to_string(record.intent.side)
+                  << " " << record.intent.quantity
+                  << " of " << qt::instrument_key(record.intent.instrument)
+                  << " status=" << qt::to_string(record.status) << "\n";
     }
 
     std::cout << "Reports:\n";
@@ -67,9 +80,27 @@ void print_cycle(const std::string& label, const qt::CycleResult& result) {
     }
 }
 
+void print_event_stream(const qt::EventBus& event_bus) {
+    std::cout << "\nEvent stream:\n";
+    for (const auto& event : event_bus.history()) {
+        std::cout << "  [" << event.sequence << "] " << qt::describe_event(event)
+                  << "\n";
+    }
+}
+
+void print_report(const qt::BacktestReport& report) {
+    std::cout << "\n=== Backtest summary ===\n";
+    std::cout << "Cycles: " << report.cycles.size() << "\n";
+    std::cout << "Events: " << report.event_count << "\n";
+    std::cout << "Fills: " << report.total_fills << "\n";
+    std::cout << "Commission: " << std::fixed << std::setprecision(2)
+              << report.total_commission << "\n";
+}
+
 }  // namespace
 
 int main() {
+    qt::EventBus event_bus;
     std::vector<std::unique_ptr<qt::ISignalAgent>> agents;
     agents.push_back(std::make_unique<qt::MomentumAgent>());
     agents.push_back(std::make_unique<qt::MeanReversionAgent>());
@@ -81,14 +112,25 @@ int main() {
         std::make_unique<qt::SimplePortfolioOptimizer>(0.35, 0.90),
         std::make_unique<qt::RiskAgent>(0.30, 0.80),
         std::make_unique<qt::NaiveExecutionAlgo>(),
-        std::make_unique<qt::PaperBrokerGateway>(),
-        1'000'000.0);
+        std::make_unique<qt::OrderManagementSystem>(
+            std::make_unique<qt::PaperBrokerGateway>()),
+        1'000'000.0,
+        &event_bus);
 
-    const auto cycle1 = engine.run_cycle(trending_snapshot());
-    print_cycle("Cycle 1 - Trending market", cycle1);
+    const std::vector<qt::BacktestStep> steps = {
+        {"Cycle 1 - Trending market", trending_snapshot()},
+        {"Cycle 2 - Rotation market", rotational_snapshot()},
+        {"Cycle 3 - Crisis market", crisis_snapshot()},
+    };
 
-    const auto cycle2 = engine.run_cycle(crisis_snapshot());
-    print_cycle("Cycle 2 - Crisis market", cycle2);
+    qt::BacktestEngine backtest(engine, &event_bus);
+    const auto report = backtest.run(steps);
+
+    for (const auto& cycle : report.cycles) {
+        print_cycle(cycle);
+    }
+    print_event_stream(event_bus);
+    print_report(report);
 
     return 0;
 }

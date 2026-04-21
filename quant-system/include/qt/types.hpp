@@ -80,6 +80,17 @@ struct OrderIntent {
     std::string parent_decision_id;
 };
 
+enum class OrderStatus { Created, Submitted, Filled, Rejected };
+
+struct OrderRecord {
+    std::string order_id;
+    OrderIntent intent;
+    OrderStatus status{OrderStatus::Created};
+    double filled_qty{};
+    double avg_price{};
+    double commission{};
+};
+
 struct ExecutionReport {
     std::string order_id;
     InstrumentId instrument;
@@ -161,6 +172,20 @@ inline std::string to_string(OrderSide side) {
             return "Buy";
         case OrderSide::Sell:
             return "Sell";
+    }
+    return "Unknown";
+}
+
+inline std::string to_string(OrderStatus status) {
+    switch (status) {
+        case OrderStatus::Created:
+            return "Created";
+        case OrderStatus::Submitted:
+            return "Submitted";
+        case OrderStatus::Filled:
+            return "Filled";
+        case OrderStatus::Rejected:
+            return "Rejected";
     }
     return "Unknown";
 }

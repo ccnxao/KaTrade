@@ -4,9 +4,11 @@ TARGET := traderd
 
 SOURCES := \
 	src/agents.cpp \
+	src/backtest_engine.cpp \
 	src/portfolio.cpp \
 	src/risk.cpp \
 	src/execution.cpp \
+	src/oms.cpp \
 	src/trader_engine.cpp \
 	apps/traderd/main.cpp
 

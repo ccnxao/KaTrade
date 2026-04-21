@@ -7,9 +7,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(quant_core
     src/agents.cpp
+    src/backtest_engine.cpp
     src/portfolio.cpp
     src/risk.cpp
     src/execution.cpp
+    src/oms.cpp
     src/trader_engine.cpp
 )
 
