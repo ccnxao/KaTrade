@@ -1,0 +1,5 @@
+.DS_Store
+.vscode/
+
+quant-system/traderd
+quant-system/build/
