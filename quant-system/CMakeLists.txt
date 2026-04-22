@@ -10,6 +10,7 @@ add_library(quant_core
     src/backtest_engine.cpp
     src/portfolio.cpp
     src/portfolio_book.cpp
+    src/pricing.cpp
     src/report_io.cpp
     src/replay_data.cpp
     src/risk.cpp
@@ -26,3 +27,9 @@ target_link_libraries(traderd PRIVATE quant_core)
 
 add_executable(replay_check apps/replay_check/main.cpp)
 target_link_libraries(replay_check PRIVATE quant_core)
+
+add_executable(option_demo apps/option_demo/main.cpp)
+target_link_libraries(option_demo PRIVATE quant_core)
+
+add_executable(pricing_check apps/pricing_check/main.cpp)
+target_link_libraries(pricing_check PRIVATE quant_core)

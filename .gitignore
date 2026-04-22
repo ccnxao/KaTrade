@@ -3,5 +3,7 @@
 
 quant-system/traderd
 quant-system/replay_check
+quant-system/option_demo
+quant-system/pricing_check
 quant-system/build/
 quant-system/logs/

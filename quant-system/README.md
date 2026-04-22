@@ -6,6 +6,10 @@
 
 `CSV Replay -> Regime -> Signal Agents -> Portfolio Optimizer -> Risk Agent -> OMS -> Simulated Broker -> PortfolioBook -> Backtest`
 
+同时已经开始补衍生品定价模块：
+
+`Binomial Option Pricer -> European/American Call/Put -> Pricing Checks`
+
 ## 目录
 
 ```text
@@ -36,6 +40,9 @@ quant-system/
 - `RuntimeConfig`
 - `Event log / report writers`
 - `replay_check`
+- `BinomialOptionPricer`
+- `option_demo`
+- `pricing_check`
 
 ## 本地运行
 
@@ -58,14 +65,22 @@ cmake --build build
 ./traderd config/default.cfg
 ```
 
+二叉树期权定价 demo：
+
+```bash
+./option_demo
+```
+
 ## 当前演示
 
 `traderd` 现在默认会读取 `data/sample_bars.csv`，跑一个多周期回测。
 
-也可以传入你自己的 CSV：
+也可以复制一份配置文件，然后把 `replay_path` 改成你自己的 CSV：
 
 ```bash
-./traderd data/sample_bars.csv
+cp config/default.cfg config/my_run.cfg
+# 编辑 config/my_run.cfg 里的 replay_path
+./traderd config/my_run.cfg
 ```
 
 CSV 格式：
@@ -108,17 +123,34 @@ make check
 1. 读取 [`config/default.cfg`](/Users/snlnfy/Documents/量化交易/quant-system/config/default.cfg)
 2. 跑完整回测
 3. 和 [`sample_metrics.txt`](/Users/snlnfy/Documents/量化交易/quant-system/tests/golden/sample_metrics.txt) 对比
-4. 如果指标漂移超出容差，返回非 0 退出码
+4. 运行二叉树期权定价校验
+5. 如果指标漂移超出容差，返回非 0 退出码
 
 每次运行 `traderd` 还会生成：
 
 - [`events.jsonl`](/Users/snlnfy/Documents/量化交易/quant-system/logs/events.jsonl)
 - [`last_run_summary.txt`](/Users/snlnfy/Documents/量化交易/quant-system/logs/last_run_summary.txt)
 
+## 期权定价模块
+
+当前已经有一个 CRR 二叉树定价器：
+
+- 欧式看涨 / 看跌
+- 美式看涨 / 看跌
+- Delta / Gamma / Theta 近似
+- 与 Black-Scholes 的欧式价格对照
+
+相关代码：
+
+- [`pricing.hpp`](/Users/snlnfy/Documents/量化交易/quant-system/include/qt/pricing.hpp)
+- [`pricing.cpp`](/Users/snlnfy/Documents/量化交易/quant-system/src/pricing.cpp)
+- [`option_demo`](/Users/snlnfy/Documents/量化交易/quant-system/apps/option_demo/main.cpp)
+- [`pricing_check`](/Users/snlnfy/Documents/量化交易/quant-system/apps/pricing_check/main.cpp)
+
 ## 下一步扩展
 
 1. 接入真实行情和历史数据读取。
 2. 把内存事件总线升级成 append-only 事件存储。
 3. 增加限价单、撤单原因、部分成交超时策略。
-4. 引入真实券商网关或模拟盘接口。
-5. 接入更长历史数据和参数化 Walk-forward 验证。
+4. 把二叉树定价器接进统一的 `pricing engine` 接口。
+5. 补 Black-Scholes Greeks 和 Monte Carlo pricer。
