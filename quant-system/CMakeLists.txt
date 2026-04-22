@@ -10,8 +10,10 @@ add_library(quant_core
     src/backtest_engine.cpp
     src/portfolio.cpp
     src/portfolio_book.cpp
+    src/report_io.cpp
     src/replay_data.cpp
     src/risk.cpp
+    src/runtime_config.cpp
     src/execution.cpp
     src/oms.cpp
     src/trader_engine.cpp
@@ -21,3 +23,6 @@ target_include_directories(quant_core PUBLIC include)
 
 add_executable(traderd apps/traderd/main.cpp)
 target_link_libraries(traderd PRIVATE quant_core)
+
+add_executable(replay_check apps/replay_check/main.cpp)
+target_link_libraries(replay_check PRIVATE quant_core)

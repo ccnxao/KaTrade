@@ -2,4 +2,6 @@
 .vscode/
 
 quant-system/traderd
+quant-system/replay_check
 quant-system/build/
+quant-system/logs/

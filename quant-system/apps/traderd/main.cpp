@@ -8,7 +8,9 @@
 #include "qt/backtest_engine.hpp"
 #include "qt/event_bus.hpp"
 #include "qt/oms.hpp"
+#include "qt/report_io.hpp"
 #include "qt/replay_data.hpp"
+#include "qt/runtime_config.hpp"
 #include "qt/trader_engine.hpp"
 
 namespace {
@@ -101,9 +103,11 @@ void print_report(const qt::BacktestReport& report) {
 
 int main(int argc, char** argv) {
     try {
-        const std::string replay_path =
-            argc > 1 ? argv[1] : "data/sample_bars.csv";
-        std::cout << "Replay file: " << replay_path << "\n";
+        const std::string config_path =
+            argc > 1 ? argv[1] : "config/default.cfg";
+        const auto config = qt::load_runtime_config(config_path);
+        std::cout << "Config file: " << config_path << "\n";
+        std::cout << "Replay file: " << config.replay_path << "\n";
 
         qt::EventBus event_bus;
         std::vector<std::unique_ptr<qt::ISignalAgent>> agents;
@@ -114,23 +118,34 @@ int main(int argc, char** argv) {
         qt::TraderEngine engine(
             std::make_unique<qt::RuleBasedRegimeAgent>(),
             std::move(agents),
-            std::make_unique<qt::SimplePortfolioOptimizer>(0.35, 0.90),
-            std::make_unique<qt::RiskAgent>(0.30, 0.80),
-            std::make_unique<qt::NaiveExecutionAlgo>(),
+            std::make_unique<qt::SimplePortfolioOptimizer>(
+                config.optimizer_max_single_weight,
+                config.optimizer_max_gross),
+            std::make_unique<qt::RiskAgent>(config.risk_max_single_weight,
+                                            config.risk_max_gross),
+            std::make_unique<qt::NaiveExecutionAlgo>(
+                config.execution_min_rebalance_delta),
             std::make_unique<qt::OrderManagementSystem>(
-                std::make_unique<qt::PaperBrokerGateway>(0.04)),
-            1'000'000.0,
+                std::make_unique<qt::PaperBrokerGateway>(
+                    config.execution_max_participation_rate)),
+            config.initial_cash,
             &event_bus);
 
-        const auto steps = qt::CsvReplayLoader::load(replay_path);
+        const auto steps = qt::CsvReplayLoader::load(config.replay_path);
         qt::BacktestEngine backtest(engine, &event_bus);
         const auto report = backtest.run(steps);
 
-        for (const auto& cycle : report.cycles) {
-            print_cycle(cycle);
+        if (config.print_cycles) {
+            for (const auto& cycle : report.cycles) {
+                print_cycle(cycle);
+            }
         }
-        print_event_stream(event_bus);
+        if (config.print_event_stream) {
+            print_event_stream(event_bus);
+        }
         print_report(report);
+        qt::write_event_log_jsonl(event_bus, config.event_log_path);
+        qt::write_report_summary(report, "logs/last_run_summary.txt");
 
         return 0;
     } catch (const std::exception& ex) {
