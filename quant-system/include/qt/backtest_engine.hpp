@@ -16,9 +16,12 @@ struct BacktestStep {
 
 struct BacktestReport {
     std::vector<CycleResult> cycles;
+    std::vector<EquityPoint> equity_curve;
     std::size_t event_count{};
     std::size_t total_fills{};
     double total_commission{};
+    double total_return{};
+    double max_drawdown{};
 };
 
 class BacktestEngine {

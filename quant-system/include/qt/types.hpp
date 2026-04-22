@@ -22,6 +22,7 @@ inline std::string instrument_key(const InstrumentId& instrument) {
 }
 
 struct Bar {
+    std::string timestamp;
     InstrumentId instrument;
     double open{};
     double high{};
@@ -80,13 +81,21 @@ struct OrderIntent {
     std::string parent_decision_id;
 };
 
-enum class OrderStatus { Created, Submitted, Filled, Rejected };
+enum class OrderStatus {
+    Created,
+    Submitted,
+    PartiallyFilled,
+    Filled,
+    Cancelled,
+    Rejected
+};
 
 struct OrderRecord {
     std::string order_id;
     OrderIntent intent;
     OrderStatus status{OrderStatus::Created};
     double filled_qty{};
+    double remaining_qty{};
     double avg_price{};
     double commission{};
 };
@@ -94,21 +103,44 @@ struct OrderRecord {
 struct ExecutionReport {
     std::string order_id;
     InstrumentId instrument;
-    double filled_qty{};
+    OrderSide side{OrderSide::Buy};
+    double last_fill_qty{};
+    double last_fill_price{};
+    double cumulative_filled_qty{};
+    double remaining_qty{};
     double avg_price{};
     double commission{};
     double slippage_bps{};
+    OrderStatus status{OrderStatus::Submitted};
     std::string broker_status;
 };
 
 struct Position {
     InstrumentId instrument;
+    double quantity{};
+    double avg_cost{};
+    double market_price{};
+    double market_value{};
     double weight{};
 };
 
 struct PortfolioSnapshot {
     std::vector<Position> positions;
+    double cash{};
+    double equity{};
     double cash_weight{1.0};
+    double realized_pnl{};
+    double unrealized_pnl{};
+};
+
+struct EquityPoint {
+    std::size_t cycle_index{};
+    std::string label;
+    double equity{};
+    double cash{};
+    double gross_exposure{};
+    double realized_pnl{};
+    double unrealized_pnl{};
 };
 
 inline double gross_exposure(const TargetPortfolio& portfolio) {
@@ -182,8 +214,12 @@ inline std::string to_string(OrderStatus status) {
             return "Created";
         case OrderStatus::Submitted:
             return "Submitted";
+        case OrderStatus::PartiallyFilled:
+            return "PartiallyFilled";
         case OrderStatus::Filled:
             return "Filled";
+        case OrderStatus::Cancelled:
+            return "Cancelled";
         case OrderStatus::Rejected:
             return "Rejected";
     }

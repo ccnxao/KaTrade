@@ -8,6 +8,7 @@
 #include "qt/event_bus.hpp"
 #include "qt/execution.hpp"
 #include "qt/oms.hpp"
+#include "qt/portfolio_book.hpp"
 #include "qt/portfolio.hpp"
 #include "qt/risk.hpp"
 
@@ -16,7 +17,10 @@ namespace qt {
 struct CycleResult {
     std::size_t cycle_index{};
     std::string cycle_label;
+    PriceMap prices;
     FeatureFrame features;
+    PortfolioSnapshot pre_trade_portfolio;
+    PortfolioSnapshot post_trade_portfolio;
     RegimeState regime;
     std::vector<Signal> signals;
     TargetPortfolio target_portfolio;
@@ -38,12 +42,11 @@ public:
                  EventBus* event_bus = nullptr);
 
     CycleResult run_cycle(const std::vector<Bar>& bars, std::string cycle_label = {});
-    const PortfolioSnapshot& portfolio() const noexcept;
+    PortfolioSnapshot portfolio() const;
 
 private:
     FeatureFrame build_features(const std::vector<Bar>& bars) const;
     PriceMap build_prices(const std::vector<Bar>& bars) const;
-    void apply_target_portfolio(const TargetPortfolio& portfolio);
 
     std::unique_ptr<IMetaAgent> meta_agent_;
     std::vector<std::unique_ptr<ISignalAgent>> signal_agents_;
@@ -51,7 +54,7 @@ private:
     std::unique_ptr<RiskAgent> risk_agent_;
     std::unique_ptr<IExecutionAlgo> execution_algo_;
     std::unique_ptr<OrderManagementSystem> order_management_system_;
-    PortfolioSnapshot portfolio_;
+    PortfolioBook portfolio_book_;
     double account_equity_;
     std::size_t cycle_id_{0};
     EventBus* event_bus_;

@@ -6,6 +6,8 @@ SOURCES := \
 	src/agents.cpp \
 	src/backtest_engine.cpp \
 	src/portfolio.cpp \
+	src/portfolio_book.cpp \
+	src/replay_data.cpp \
 	src/risk.cpp \
 	src/execution.cpp \
 	src/oms.cpp \

@@ -39,30 +39,115 @@ std::vector<OrderIntent> NaiveExecutionAlgo::plan(const RiskDecision& decision,
     return orders;
 }
 
+PaperBrokerGateway::PaperBrokerGateway(double max_participation_rate)
+    : max_participation_rate_(max_participation_rate) {}
+
 std::string PaperBrokerGateway::submit(const OrderIntent& order) {
     const std::string order_id = "PAPER-" + std::to_string(next_id_++);
-    const double slippage_bps = 5.0;
-    const double slippage_multiplier =
-        order.side == OrderSide::Buy ? (1.0 + slippage_bps / 10000.0)
-                                     : (1.0 - slippage_bps / 10000.0);
-
-    pending_reports_.push_back(ExecutionReport{
-        order_id,
-        order.instrument,
-        order.quantity,
-        order.reference_price * slippage_multiplier,
-        std::max(1.0, order.quantity * 0.005),
-        slippage_bps,
-        "FILLED",
-    });
-
+    working_orders_.push_back(
+        WorkingOrder{order_id, order, order.quantity, 0.0, 0.0});
     return order_id;
+}
+
+void PaperBrokerGateway::cancel_open_orders() {
+    for (const auto& order : working_orders_) {
+        pending_reports_.push_back(ExecutionReport{
+            order.order_id,
+            order.intent.instrument,
+            order.intent.side,
+            0.0,
+            0.0,
+            order.cumulative_filled_qty,
+            order.remaining_qty,
+            order.cumulative_filled_qty > 0.0
+                ? order.cumulative_notional / order.cumulative_filled_qty
+                : 0.0,
+            0.0,
+            0.0,
+            OrderStatus::Cancelled,
+            "CANCELLED",
+        });
+    }
+    working_orders_.clear();
+}
+
+void PaperBrokerGateway::on_market_snapshot(std::span<const Bar> bars) {
+    std::vector<WorkingOrder> still_working;
+    still_working.reserve(working_orders_.size());
+
+    for (auto& order : working_orders_) {
+        const Bar* bar = find_bar(bars, order.intent.instrument);
+        if (bar == nullptr) {
+            still_working.push_back(order);
+            continue;
+        }
+
+        const double max_fill_qty =
+            std::max(1.0, bar->volume * max_participation_rate_);
+        const double fill_qty = std::min(order.remaining_qty, max_fill_qty);
+        if (fill_qty <= 1e-9) {
+            still_working.push_back(order);
+            continue;
+        }
+
+        const double participation = fill_qty / std::max(1.0, bar->volume);
+        const double slippage_bps = 4.0 + participation * 2000.0;
+        const double fill_multiplier =
+            order.intent.side == OrderSide::Buy
+                ? (1.0 + slippage_bps / 10000.0)
+                : (1.0 - slippage_bps / 10000.0);
+        const double fill_price = bar->close * fill_multiplier;
+        const double fill_commission = std::max(1.0, fill_qty * 0.005);
+
+        order.remaining_qty -= fill_qty;
+        order.cumulative_filled_qty += fill_qty;
+        order.cumulative_notional += fill_qty * fill_price;
+
+        const OrderStatus status =
+            order.remaining_qty <= 1e-9 ? OrderStatus::Filled
+                                        : OrderStatus::PartiallyFilled;
+        const std::string broker_status =
+            status == OrderStatus::Filled ? "FILLED" : "PARTIALLY_FILLED";
+
+        pending_reports_.push_back(ExecutionReport{
+            order.order_id,
+            order.intent.instrument,
+            order.intent.side,
+            fill_qty,
+            fill_price,
+            order.cumulative_filled_qty,
+            std::max(0.0, order.remaining_qty),
+            order.cumulative_notional /
+                std::max(order.cumulative_filled_qty, 1e-9),
+            fill_commission,
+            slippage_bps,
+            status,
+            broker_status,
+        });
+
+        if (status != OrderStatus::Filled) {
+            still_working.push_back(order);
+        }
+    }
+
+    working_orders_.swap(still_working);
 }
 
 std::vector<ExecutionReport> PaperBrokerGateway::flush_reports() {
     auto reports = pending_reports_;
     pending_reports_.clear();
     return reports;
+}
+
+const Bar* PaperBrokerGateway::find_bar(std::span<const Bar> bars,
+                                        const InstrumentId& instrument) const {
+    const auto key = instrument_key(instrument);
+    for (const auto& bar : bars) {
+        if (instrument_key(bar.instrument) == key) {
+            return &bar;
+        }
+    }
+    return nullptr;
 }
 
 }  // namespace qt

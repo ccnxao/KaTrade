@@ -18,6 +18,7 @@ std::vector<OrderRecord> OrderManagementSystem::submit_orders(
             order,
             OrderStatus::Submitted,
             0.0,
+            order.quantity,
             0.0,
             0.0,
         };
@@ -28,15 +29,23 @@ std::vector<OrderRecord> OrderManagementSystem::submit_orders(
     return submitted;
 }
 
+void OrderManagementSystem::cancel_open_orders() {
+    broker_gateway_->cancel_open_orders();
+}
+
+void OrderManagementSystem::on_market_snapshot(std::span<const Bar> bars) {
+    broker_gateway_->on_market_snapshot(bars);
+}
+
 std::vector<ExecutionReport> OrderManagementSystem::collect_reports() {
     auto reports = broker_gateway_->flush_reports();
     for (const auto& report : reports) {
         if (auto* order = find_order(report.order_id)) {
-            order->filled_qty = report.filled_qty;
+            order->filled_qty = report.cumulative_filled_qty;
+            order->remaining_qty = report.remaining_qty;
             order->avg_price = report.avg_price;
-            order->commission = report.commission;
-            order->status = report.broker_status == "FILLED" ? OrderStatus::Filled
-                                                             : OrderStatus::Rejected;
+            order->commission += report.commission;
+            order->status = report.status;
         }
     }
     return reports;

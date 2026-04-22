@@ -13,6 +13,8 @@ public:
     explicit OrderManagementSystem(std::unique_ptr<IBrokerGateway> broker_gateway);
 
     std::vector<OrderRecord> submit_orders(std::span<const OrderIntent> orders);
+    void cancel_open_orders();
+    void on_market_snapshot(std::span<const Bar> bars);
     std::vector<ExecutionReport> collect_reports();
 
     const std::vector<OrderRecord>& order_history() const noexcept;
