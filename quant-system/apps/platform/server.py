@@ -210,13 +210,13 @@ def agent_context() -> str:
 def call_agent(provider_key: str, model: str, prompt: str) -> dict[str, Any]:
     provider = PROVIDERS.get(provider_key)
     if provider is None:
-        raise ValueError(f"unsupported provider: {provider_key}")
+        raise ValueError(f"不支持的服务商：{provider_key}")
 
     api_key = os.environ.get(provider["env"])
     if not api_key:
         return {
             "ok": False,
-            "error": f"missing {provider['env']} environment variable",
+            "error": f"缺少环境变量 {provider['env']}",
         }
 
     selected_model = model.strip() or provider["default_model"]
@@ -227,14 +227,14 @@ def call_agent(provider_key: str, model: str, prompt: str) -> dict[str, Any]:
             {
                 "role": "system",
                 "content": (
-                    "You are the local KaTrade quant research agent. "
-                    "Use the supplied run context to explain risks, diagnostics, "
-                    "and next engineering steps. Be concise and do not invent data."
+                    "你是本地 KaTrade 量化研究助手。"
+                    "请基于提供的运行上下文解释风险、诊断问题、提出下一步工程改进。"
+                    "回答要简洁，不要编造数据。"
                 ),
             },
             {
                 "role": "user",
-                "content": f"Run context JSON:\n{agent_context()}\n\nQuestion:\n{prompt}",
+                "content": f"运行上下文 JSON:\n{agent_context()}\n\n问题:\n{prompt}",
             },
         ],
         "temperature": 0.2,
@@ -254,9 +254,9 @@ def call_agent(provider_key: str, model: str, prompt: str) -> dict[str, Any]:
             body = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
-        return {"ok": False, "error": f"provider HTTP {exc.code}: {detail}"}
+        return {"ok": False, "error": f"服务商 HTTP {exc.code}: {detail}"}
     except urllib.error.URLError as exc:
-        return {"ok": False, "error": f"provider connection failed: {exc}"}
+        return {"ok": False, "error": f"服务商连接失败：{exc}"}
 
     content = ""
     choices = body.get("choices") or []

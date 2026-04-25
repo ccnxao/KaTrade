@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>KaTrade Platform</title>
+    <title>KaTrade 量化平台</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -13,95 +13,95 @@
           <div class="mark">K</div>
           <div>
             <strong>KaTrade</strong>
-            <span>Local quant platform</span>
+            <span>本地量化平台</span>
           </div>
         </div>
         <nav>
-          <a href="#dashboard">Dashboard</a>
-          <a href="#config">Config</a>
-          <a href="#events">Events</a>
-          <a href="#agent">Agent</a>
+          <a href="#dashboard">总览</a>
+          <a href="#config">配置</a>
+          <a href="#events">事件</a>
+          <a href="#agent">研究助手</a>
         </nav>
       </aside>
 
       <main>
         <header class="topbar">
           <div>
-            <h1>Research Console</h1>
-            <p id="providerState">Providers loading</p>
+            <h1>研究控制台</h1>
+            <p id="providerState">正在加载服务商</p>
           </div>
           <div class="actions">
-            <button id="runBacktest">Run backtest</button>
-            <button id="runChecks">Run checks</button>
-            <button id="runPricing">Pricing demo</button>
+            <button id="runBacktest">运行回测</button>
+            <button id="runChecks">运行检查</button>
+            <button id="runPricing">期权定价</button>
           </div>
         </header>
 
         <section id="dashboard" class="grid metrics">
           <div class="panel metric">
-            <span>Final equity</span>
+            <span>最终权益</span>
             <strong id="metricEquity">-</strong>
           </div>
           <div class="panel metric">
-            <span>Total return</span>
+            <span>总收益率</span>
             <strong id="metricReturn">-</strong>
           </div>
           <div class="panel metric">
-            <span>Max drawdown</span>
+            <span>最大回撤</span>
             <strong id="metricDrawdown">-</strong>
           </div>
           <div class="panel metric">
-            <span>Fills</span>
+            <span>成交笔数</span>
             <strong id="metricFills">-</strong>
           </div>
         </section>
 
         <section class="panel chart-panel">
           <div class="section-head">
-            <h2>Equity Curve</h2>
-            <span id="chartState">No run loaded</span>
+            <h2>净值曲线</h2>
+            <span id="chartState">未加载运行结果</span>
           </div>
           <canvas id="equityChart" width="960" height="260"></canvas>
         </section>
 
         <section id="config" class="panel">
           <div class="section-head">
-            <h2>Runtime Config</h2>
-            <button id="saveConfig">Save</button>
+            <h2>运行配置</h2>
+            <button id="saveConfig">保存</button>
           </div>
           <div id="configGrid" class="config-grid"></div>
         </section>
 
         <section id="events" class="panel">
           <div class="section-head">
-            <h2>Recent Events</h2>
-            <span id="eventCount">0 events</span>
+            <h2>最近事件</h2>
+            <span id="eventCount">0 条事件</span>
           </div>
           <div id="eventsList" class="events-list"></div>
         </section>
 
         <section id="agent" class="panel agent-panel">
           <div class="section-head">
-            <h2>Agent</h2>
+            <h2>研究助手</h2>
             <div class="inline-controls">
               <select id="providerSelect">
                 <option value="kimi">Kimi</option>
                 <option value="deepseek">DeepSeek</option>
               </select>
-              <input id="modelInput" placeholder="model" />
+              <input id="modelInput" placeholder="模型名称" />
             </div>
           </div>
-          <textarea id="agentPrompt" rows="4">Analyze the latest backtest and identify the highest priority engineering improvement.</textarea>
+          <textarea id="agentPrompt" rows="4">分析最新回测结果，并指出当前优先级最高的工程改进。</textarea>
           <div class="agent-actions">
-            <button id="askAgent">Ask agent</button>
+            <button id="askAgent">询问助手</button>
           </div>
           <pre id="agentOutput" class="output"></pre>
         </section>
 
         <section class="panel">
           <div class="section-head">
-            <h2>Command Output</h2>
-            <span id="commandState">Idle</span>
+            <h2>命令输出</h2>
+            <span id="commandState">空闲</span>
           </div>
           <pre id="commandOutput" class="output"></pre>
         </section>

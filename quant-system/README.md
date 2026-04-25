@@ -71,7 +71,7 @@ cmake --build build
 ./option_demo
 ```
 
-本地 UI 客户端：
+本地中文 UI 客户端：
 
 ```bash
 make platform

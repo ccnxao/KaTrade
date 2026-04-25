@@ -10,7 +10,7 @@ let currentProviders = {};
 
 function formatMoney(value) {
   if (value === undefined || value === null || Number.isNaN(Number(value))) return "-";
-  return Number(value).toLocaleString(undefined, {
+  return Number(value).toLocaleString("zh-CN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -66,10 +66,10 @@ function collectConfig() {
 function renderProviders(providers) {
   currentProviders = providers || {};
   const parts = Object.entries(currentProviders).map(([key, provider]) => {
-    const state = provider.configured ? "ready" : provider.env;
+    const state = provider.configured ? "已配置" : `未配置 ${provider.env}`;
     return `${provider.name}: ${state}`;
   });
-  $("providerState").textContent = parts.length ? parts.join(" | ") : "No providers";
+  $("providerState").textContent = parts.length ? parts.join(" | ") : "未发现服务商";
 
   const selected = $("providerSelect").value;
   const model = currentProviders[selected]?.default_model || "";
@@ -85,14 +85,88 @@ function renderMetrics(summary) {
   $("metricFills").textContent = summary.total_fills ?? "-";
 }
 
+function translateEventType(type) {
+  const names = {
+    cycle_started: "周期开始",
+    regime_detected: "市场状态",
+    risk_reviewed: "风控评审",
+    order_submitted: "订单提交",
+    order_filled: "订单成交",
+    cycle_completed: "周期完成",
+  };
+  return names[type] || type;
+}
+
+function translateRegime(regime) {
+  const names = {
+    Trending: "趋势",
+    Uncertain: "不确定",
+    MeanReverting: "均值回归",
+    Defensive: "防御",
+  };
+  return names[regime] || regime || "-";
+}
+
+function translateOrderStatus(status) {
+  const names = {
+    Filled: "全部成交",
+    PartiallyFilled: "部分成交",
+    Rejected: "已拒绝",
+    Submitted: "已提交",
+    Cancelled: "已撤销",
+  };
+  return names[status] || status || "-";
+}
+
+function translateRiskAction(action) {
+  const names = {
+    Reduce: "降低风险",
+    Keep: "保持",
+    Reject: "拒绝",
+  };
+  return names[action] || action || "-";
+}
+
+function translateReason(reason) {
+  const names = {
+    "risk-adjusted portfolio": "风控调整后的组合",
+  };
+  return names[reason] || reason || "-";
+}
+
+function formatEventMessage(event) {
+  switch (event.type) {
+    case "cycle_started":
+      return `第 ${event.cycle_index} 轮开始：${event.label}，标的 ${event.instrument_count} 个`;
+    case "regime_detected":
+      return `第 ${event.cycle_index} 轮市场状态：${translateRegime(event.regime)}，置信度 ${formatPercent(event.confidence)}`;
+    case "risk_reviewed":
+      return `第 ${event.cycle_index} 轮风控：${translateRiskAction(event.risk_action)}（${translateReason(event.reason)}）`;
+    case "order_submitted":
+      return `第 ${event.cycle_index} 轮提交订单：${event.order_id} ${event.instrument}`;
+    case "order_filled":
+      return `第 ${event.cycle_index} 轮成交：${event.order_id}，数量 ${event.fill_qty}，状态 ${translateOrderStatus(event.status)}`;
+    case "cycle_completed":
+      return `第 ${event.cycle_index} 轮完成：${event.label}，提交 ${event.submitted_orders} 单，成交 ${event.fill_count} 笔`;
+    default:
+      return event.message || "";
+  }
+}
+
 function renderEvents(events) {
-  $("eventCount").textContent = `${events.length} events`;
+  $("eventCount").textContent = `${events.length} 条事件`;
   const list = $("eventsList");
   list.innerHTML = "";
   events.slice().reverse().forEach((event) => {
     const row = document.createElement("div");
     row.className = "event-row";
-    row.innerHTML = `<span>#${event.sequence}</span><strong>${event.type}</strong><div>${event.message}</div>`;
+    const sequence = document.createElement("span");
+    sequence.textContent = `#${event.sequence}`;
+    const type = document.createElement("strong");
+    type.textContent = translateEventType(event.type);
+    const message = document.createElement("div");
+    message.textContent = formatEventMessage(event);
+    row.append(sequence, type, message);
     list.appendChild(row);
   });
 }
@@ -105,10 +179,10 @@ function drawEquityCurve(points) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   if (!points || points.length === 0) {
-    $("chartState").textContent = "No run loaded";
+    $("chartState").textContent = "未加载运行结果";
     return;
   }
-  $("chartState").textContent = `${points.length} points`;
+  $("chartState").textContent = `${points.length} 个数据点`;
 
   const padding = 36;
   const width = canvas.width - padding * 2;
@@ -162,56 +236,56 @@ async function loadStatus() {
 }
 
 $("runBacktest").addEventListener("click", async () => {
-  setBusy("Running backtest");
+  setBusy("正在运行回测");
   output.textContent = "";
   try {
     const result = await api("/api/backtest", { method: "POST", body: "{}" });
     renderRun(result);
-    setBusy(result.ok ? "Backtest complete" : "Backtest failed");
+    setBusy(result.ok ? "回测完成" : "回测失败");
   } catch (error) {
     output.textContent = String(error);
-    setBusy("Backtest failed");
+    setBusy("回测失败");
   }
 });
 
 $("runChecks").addEventListener("click", async () => {
-  setBusy("Running checks");
+  setBusy("正在运行检查");
   output.textContent = "";
   try {
     const result = await api("/api/check", { method: "POST", body: "{}" });
     output.textContent = result.output || "";
-    setBusy(result.ok ? "Checks passed" : "Checks failed");
+    setBusy(result.ok ? "检查通过" : "检查失败");
   } catch (error) {
     output.textContent = String(error);
-    setBusy("Checks failed");
+    setBusy("检查失败");
   }
 });
 
 $("runPricing").addEventListener("click", async () => {
-  setBusy("Running pricing demo");
+  setBusy("正在运行期权定价");
   output.textContent = "";
   try {
     const result = await api("/api/pricing", { method: "POST", body: "{}" });
     output.textContent = result.output || "";
-    setBusy(result.ok ? "Pricing complete" : "Pricing failed");
+    setBusy(result.ok ? "期权定价完成" : "期权定价失败");
   } catch (error) {
     output.textContent = String(error);
-    setBusy("Pricing failed");
+    setBusy("期权定价失败");
   }
 });
 
 $("saveConfig").addEventListener("click", async () => {
-  setBusy("Saving config");
+  setBusy("正在保存配置");
   try {
     const result = await api("/api/config", {
       method: "POST",
       body: JSON.stringify({ config: collectConfig() }),
     });
     renderConfig(result.config || {});
-    setBusy("Config saved");
+    setBusy("配置已保存");
   } catch (error) {
     output.textContent = String(error);
-    setBusy("Config save failed");
+    setBusy("配置保存失败");
   }
 });
 
@@ -221,7 +295,7 @@ $("providerSelect").addEventListener("change", () => {
 });
 
 $("askAgent").addEventListener("click", async () => {
-  agentOutput.textContent = "Working...";
+  agentOutput.textContent = "正在请求助手...";
   try {
     const result = await api("/api/agent", {
       method: "POST",
@@ -239,5 +313,5 @@ $("askAgent").addEventListener("click", async () => {
 
 loadStatus().catch((error) => {
   output.textContent = String(error);
-  setBusy("Status load failed");
+  setBusy("状态加载失败");
 });
