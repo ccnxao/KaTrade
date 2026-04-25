@@ -29,6 +29,19 @@ PROVIDERS = {
         "default_model": "kimi-k2.6",
         "model_env": "KIMI_MODEL",
     },
+    "kimi_coding": {
+        "name": "Kimi Coding Plan",
+        "base_url": "https://api.kimi.com/coding/v1",
+        "base_url_env": "KIMI_CODING_BASE_URL",
+        "env": "KIMI_CODING_API_KEY",
+        "env_aliases": ["MOONSHOT_API_KEY"],
+        "default_model": "kimi-for-coding",
+        "model_env": "KIMI_CODING_MODEL",
+        "max_tokens_env": "KIMI_CODING_MAX_TOKENS",
+        "default_max_tokens": "32768",
+        "user_agent_env": "KIMI_CODING_USER_AGENT",
+        "default_user_agent": "KaTradeLocalQuantAgent/0.1",
+    },
     "deepseek": {
         "name": "DeepSeek",
         "base_url": "https://api.deepseek.com",
@@ -95,20 +108,51 @@ def get_local_setting(name: str, default: str) -> str:
     return parse_key_value_file(API_KEY_CONFIG).get(name, default).strip() or default
 
 
-def provider_base_url(provider: dict[str, str]) -> str:
+def provider_base_url(provider: dict[str, Any]) -> str:
     return get_local_setting(provider["base_url_env"], provider["base_url"]).rstrip("/")
 
 
-def provider_default_model(provider: dict[str, str]) -> str:
+def provider_default_model(provider: dict[str, Any]) -> str:
     return get_local_setting(provider["model_env"], provider["default_model"])
 
 
-def api_key_source(env_name: str) -> str:
-    if os.environ.get(env_name, "").strip():
+def local_setting_source(name: str) -> str:
+    if os.environ.get(name, "").strip():
         return "environment"
-    if parse_key_value_file(API_KEY_CONFIG).get(env_name, "").strip():
+    if parse_key_value_file(API_KEY_CONFIG).get(name, "").strip():
         return "config/api_key.config"
     return ""
+
+
+def provider_api_key_names(provider: dict[str, Any]) -> list[str]:
+    return [provider["env"], *provider.get("env_aliases", [])]
+
+
+def get_provider_api_key(provider: dict[str, Any]) -> str:
+    for name in provider_api_key_names(provider):
+        value = get_local_setting(name, "")
+        if value:
+            return value
+    return ""
+
+
+def provider_api_key_source(provider: dict[str, Any]) -> str:
+    for name in provider_api_key_names(provider):
+        source = local_setting_source(name)
+        if source:
+            return source
+    return ""
+
+
+def provider_api_key_label(provider: dict[str, Any]) -> str:
+    return " 或 ".join(provider_api_key_names(provider))
+
+
+def provider_user_agent(provider: dict[str, Any]) -> str:
+    env_name = provider.get("user_agent_env")
+    if not env_name:
+        return "KaTradeLocalQuantAgent/0.1"
+    return get_local_setting(env_name, provider.get("default_user_agent", "KaTradeLocalQuantAgent/0.1"))
 
 
 def write_config(values: dict[str, Any], path: Path = DEFAULT_CONFIG) -> None:
@@ -259,11 +303,12 @@ def call_agent(provider_key: str, model: str, prompt: str) -> dict[str, Any]:
     if provider is None:
         raise ValueError(f"不支持的服务商：{provider_key}")
 
-    api_key = get_api_key(provider["env"])
+    api_key = get_provider_api_key(provider)
     if not api_key:
+        key_label = provider_api_key_label(provider)
         return {
             "ok": False,
-            "error": f"缺少 {provider['env']}，请设置环境变量或写入 config/api_key.config",
+            "error": f"缺少 {key_label}，请设置环境变量或写入 config/api_key.config",
         }
 
     selected_model = model.strip() or provider_default_model(provider)
@@ -286,14 +331,20 @@ def call_agent(provider_key: str, model: str, prompt: str) -> dict[str, Any]:
         ],
         "temperature": 0.2,
     }
+    if "max_tokens_env" in provider:
+        max_tokens = get_local_setting(provider["max_tokens_env"], provider["default_max_tokens"])
+        if max_tokens:
+            payload["max_tokens"] = int(max_tokens)
     data = json.dumps(payload).encode("utf-8")
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+        "User-Agent": provider_user_agent(provider),
+    }
     request = urllib.request.Request(
         endpoint,
         data=data,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
-        },
+        headers=headers,
         method="POST",
     )
     try:
@@ -305,7 +356,13 @@ def call_agent(provider_key: str, model: str, prompt: str) -> dict[str, Any]:
         if exc.code == 401:
             hint = (
                 f"；当前 endpoint={provider_base_url(provider)}。"
-                "请检查 API key 是否属于这个 Kimi 平台，必要时在 config/api_key.config 中设置 KIMI_BASE_URL"
+                "请检查 API key 是否属于这个平台，必要时在 config/api_key.config 中设置对应 BASE_URL"
+            )
+        if exc.code == 403 and provider_key == "kimi_coding":
+            hint = (
+                f"；当前 endpoint={provider_base_url(provider)}。"
+                "Kimi Coding Plan 可能限制只能由官方支持的 Coding Agent 调用。"
+                "本平台会按真实 User-Agent 标识自己，不会伪装成其他客户端。"
             )
         return {"ok": False, "error": f"服务商 HTTP {exc.code}: {detail}{hint}"}
     except urllib.error.URLError as exc:
@@ -384,9 +441,9 @@ class Handler(BaseHTTPRequestHandler):
                             "name": value["name"],
                             "default_model": provider_default_model(value),
                             "base_url": provider_base_url(value),
-                            "env": value["env"],
-                            "configured": bool(get_api_key(value["env"])),
-                            "source": api_key_source(value["env"]),
+                            "env": provider_api_key_label(value),
+                            "configured": bool(get_provider_api_key(value)),
+                            "source": provider_api_key_source(value),
                         }
                         for key, value in PROVIDERS.items()
                     },

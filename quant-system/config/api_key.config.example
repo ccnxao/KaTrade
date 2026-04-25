@@ -6,5 +6,14 @@ DEEPSEEK_API_KEY=
 # Optional overrides. Use the endpoint that matches where your key was created.
 KIMI_BASE_URL=https://api.moonshot.cn/v1
 KIMI_MODEL=kimi-k2.6
+
+# Kimi Coding Plan keys use the Coding endpoint and model.
+# KIMI_CODING_API_KEY can be omitted if MOONSHOT_API_KEY is your Kimi Coding Plan key.
+KIMI_CODING_API_KEY=
+KIMI_CODING_BASE_URL=https://api.kimi.com/coding/v1
+KIMI_CODING_MODEL=kimi-for-coding
+KIMI_CODING_MAX_TOKENS=32768
+KIMI_CODING_USER_AGENT=KaTradeLocalQuantAgent/0.1
+
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-v4-flash

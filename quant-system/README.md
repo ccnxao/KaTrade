@@ -177,14 +177,27 @@ DEEPSEEK_API_KEY=your_deepseek_key
 # 可选：如果你的 Kimi key 来自另一套平台，可以切换 endpoint。
 KIMI_BASE_URL=https://api.moonshot.cn/v1
 KIMI_MODEL=kimi-k2.6
+
+# Kimi Coding Plan 使用独立 provider。
+# 如果 MOONSHOT_API_KEY 就是 Coding Plan key，可以不填 KIMI_CODING_API_KEY。
+KIMI_CODING_API_KEY=
+KIMI_CODING_BASE_URL=https://api.kimi.com/coding/v1
+KIMI_CODING_MODEL=kimi-for-coding
+KIMI_CODING_MAX_TOKENS=32768
+KIMI_CODING_USER_AGENT=KaTradeLocalQuantAgent/0.1
 ```
 
 `config/api_key.config` 已经被 `.gitignore` 忽略，不会上传 GitHub。不要把真实
 API key 写入任何会提交到仓库的配置文件。
 
+Kimi Coding Plan 当前可能限制只能由官方支持的 Coding Agent 调用。本平台会以
+`KaTradeLocalQuantAgent/0.1` 标识自己，不会伪装成其他客户端；如果服务端返回
+403，请改用普通 Kimi Chat API key 或 DeepSeek。
+
 默认模型：
 
 - Kimi: `kimi-k2.6`
+- Kimi Coding Plan: `kimi-for-coding`
 - DeepSeek: `deepseek-v4-flash`
 
 ## 期权定价模块
