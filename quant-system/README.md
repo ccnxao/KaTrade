@@ -173,6 +173,10 @@ cp config/api_key.config.example config/api_key.config
 ```text
 MOONSHOT_API_KEY=your_kimi_key
 DEEPSEEK_API_KEY=your_deepseek_key
+
+# 可选：如果你的 Kimi key 来自另一套平台，可以切换 endpoint。
+KIMI_BASE_URL=https://api.moonshot.cn/v1
+KIMI_MODEL=kimi-k2.6
 ```
 
 `config/api_key.config` 已经被 `.gitignore` 忽略，不会上传 GitHub。不要把真实

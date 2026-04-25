@@ -71,7 +71,8 @@ function renderProviders(providers) {
       "config/api_key.config": "配置文件",
     };
     const source = sourceNames[provider.source] || provider.source || "";
-    const state = provider.configured ? `已配置${source ? `（${source}）` : ""}` : `未配置 ${provider.env}`;
+    const endpoint = provider.base_url ? `，${provider.base_url}` : "";
+    const state = provider.configured ? `已配置${source ? `（${source}）` : ""}${endpoint}` : `未配置 ${provider.env}`;
     return `${provider.name}: ${state}`;
   });
   $("providerState").textContent = parts.length ? parts.join(" | ") : "未发现服务商";

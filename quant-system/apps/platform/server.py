@@ -24,14 +24,18 @@ PROVIDERS = {
     "kimi": {
         "name": "Kimi",
         "base_url": "https://api.moonshot.cn/v1",
+        "base_url_env": "KIMI_BASE_URL",
         "env": "MOONSHOT_API_KEY",
         "default_model": "kimi-k2.6",
+        "model_env": "KIMI_MODEL",
     },
     "deepseek": {
         "name": "DeepSeek",
         "base_url": "https://api.deepseek.com",
+        "base_url_env": "DEEPSEEK_BASE_URL",
         "env": "DEEPSEEK_API_KEY",
         "default_model": "deepseek-v4-flash",
+        "model_env": "DEEPSEEK_MODEL",
     },
 }
 
@@ -81,10 +85,22 @@ def parse_key_value_file(path: Path) -> dict[str, str]:
 
 
 def get_api_key(env_name: str) -> str:
-    env_value = os.environ.get(env_name, "").strip()
+    return get_local_setting(env_name, "")
+
+
+def get_local_setting(name: str, default: str) -> str:
+    env_value = os.environ.get(name, "").strip()
     if env_value:
         return env_value
-    return parse_key_value_file(API_KEY_CONFIG).get(env_name, "").strip()
+    return parse_key_value_file(API_KEY_CONFIG).get(name, default).strip() or default
+
+
+def provider_base_url(provider: dict[str, str]) -> str:
+    return get_local_setting(provider["base_url_env"], provider["base_url"]).rstrip("/")
+
+
+def provider_default_model(provider: dict[str, str]) -> str:
+    return get_local_setting(provider["model_env"], provider["default_model"])
 
 
 def api_key_source(env_name: str) -> str:
@@ -250,8 +266,8 @@ def call_agent(provider_key: str, model: str, prompt: str) -> dict[str, Any]:
             "error": f"缺少 {provider['env']}，请设置环境变量或写入 config/api_key.config",
         }
 
-    selected_model = model.strip() or provider["default_model"]
-    endpoint = provider["base_url"].rstrip("/") + "/chat/completions"
+    selected_model = model.strip() or provider_default_model(provider)
+    endpoint = provider_base_url(provider) + "/chat/completions"
     payload = {
         "model": selected_model,
         "messages": [
@@ -285,7 +301,13 @@ def call_agent(provider_key: str, model: str, prompt: str) -> dict[str, Any]:
             body = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
-        return {"ok": False, "error": f"服务商 HTTP {exc.code}: {detail}"}
+        hint = ""
+        if exc.code == 401:
+            hint = (
+                f"；当前 endpoint={provider_base_url(provider)}。"
+                "请检查 API key 是否属于这个 Kimi 平台，必要时在 config/api_key.config 中设置 KIMI_BASE_URL"
+            )
+        return {"ok": False, "error": f"服务商 HTTP {exc.code}: {detail}{hint}"}
     except urllib.error.URLError as exc:
         return {"ok": False, "error": f"服务商连接失败：{exc}"}
 
@@ -360,7 +382,8 @@ class Handler(BaseHTTPRequestHandler):
                     "providers": {
                         key: {
                             "name": value["name"],
-                            "default_model": value["default_model"],
+                            "default_model": provider_default_model(value),
+                            "base_url": provider_base_url(value),
                             "env": value["env"],
                             "configured": bool(get_api_key(value["env"])),
                             "source": api_key_source(value["env"]),
