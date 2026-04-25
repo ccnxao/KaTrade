@@ -154,7 +154,7 @@ make check
 - 查看事件日志、净值曲线、回测摘要
 - 调用 Kimi 或 DeepSeek 作为研究 Agent
 
-Agent API key 只从服务端环境变量读取：
+Agent API key 优先从服务端环境变量读取：
 
 ```bash
 export MOONSHOT_API_KEY=your_kimi_key
@@ -162,8 +162,21 @@ export DEEPSEEK_API_KEY=your_deepseek_key
 make platform
 ```
 
-不要把真实 API key 写入仓库配置。个人配置请使用 `.env`、`config/local.cfg` 或
-`config/*.local.cfg`，这些路径已经被 `.gitignore` 忽略。
+也可以复制本地专用配置文件：
+
+```bash
+cp config/api_key.config.example config/api_key.config
+```
+
+然后编辑 `config/api_key.config`：
+
+```text
+MOONSHOT_API_KEY=your_kimi_key
+DEEPSEEK_API_KEY=your_deepseek_key
+```
+
+`config/api_key.config` 已经被 `.gitignore` 忽略，不会上传 GitHub。不要把真实
+API key 写入任何会提交到仓库的配置文件。
 
 默认模型：
 

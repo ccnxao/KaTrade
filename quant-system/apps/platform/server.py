@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 LOG_DIR = ROOT / "logs"
 DEFAULT_CONFIG = ROOT / "config" / "default.cfg"
+API_KEY_CONFIG = ROOT / "config" / "api_key.config"
 LAST_PLATFORM_OUTPUT = LOG_DIR / "last_platform_run.txt"
 
 PROVIDERS = {
@@ -62,6 +63,36 @@ def parse_config(path: Path = DEFAULT_CONFIG) -> dict[str, str]:
         key, value = line.split("=", 1)
         values[key.strip()] = value.strip()
     return values
+
+
+def parse_key_value_file(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not path.exists():
+        return values
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip().strip('"').strip("'")
+    return values
+
+
+def get_api_key(env_name: str) -> str:
+    env_value = os.environ.get(env_name, "").strip()
+    if env_value:
+        return env_value
+    return parse_key_value_file(API_KEY_CONFIG).get(env_name, "").strip()
+
+
+def api_key_source(env_name: str) -> str:
+    if os.environ.get(env_name, "").strip():
+        return "environment"
+    if parse_key_value_file(API_KEY_CONFIG).get(env_name, "").strip():
+        return "config/api_key.config"
+    return ""
 
 
 def write_config(values: dict[str, Any], path: Path = DEFAULT_CONFIG) -> None:
@@ -212,11 +243,11 @@ def call_agent(provider_key: str, model: str, prompt: str) -> dict[str, Any]:
     if provider is None:
         raise ValueError(f"不支持的服务商：{provider_key}")
 
-    api_key = os.environ.get(provider["env"])
+    api_key = get_api_key(provider["env"])
     if not api_key:
         return {
             "ok": False,
-            "error": f"缺少环境变量 {provider['env']}",
+            "error": f"缺少 {provider['env']}，请设置环境变量或写入 config/api_key.config",
         }
 
     selected_model = model.strip() or provider["default_model"]
@@ -331,7 +362,8 @@ class Handler(BaseHTTPRequestHandler):
                             "name": value["name"],
                             "default_model": value["default_model"],
                             "env": value["env"],
-                            "configured": bool(os.environ.get(value["env"])),
+                            "configured": bool(get_api_key(value["env"])),
+                            "source": api_key_source(value["env"]),
                         }
                         for key, value in PROVIDERS.items()
                     },

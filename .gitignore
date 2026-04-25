@@ -12,6 +12,7 @@ quant-system/logs/
 quant-system/.env
 quant-system/.env.*
 !quant-system/.env.example
+quant-system/config/api_key.config
 quant-system/config/local.cfg
 quant-system/config/*.local.cfg
 quant-system/config/private*.cfg

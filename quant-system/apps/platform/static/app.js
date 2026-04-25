@@ -66,7 +66,12 @@ function collectConfig() {
 function renderProviders(providers) {
   currentProviders = providers || {};
   const parts = Object.entries(currentProviders).map(([key, provider]) => {
-    const state = provider.configured ? "已配置" : `未配置 ${provider.env}`;
+    const sourceNames = {
+      environment: "环境变量",
+      "config/api_key.config": "配置文件",
+    };
+    const source = sourceNames[provider.source] || provider.source || "";
+    const state = provider.configured ? `已配置${source ? `（${source}）` : ""}` : `未配置 ${provider.env}`;
     return `${provider.name}: ${state}`;
   });
   $("providerState").textContent = parts.length ? parts.join(" | ") : "未发现服务商";
