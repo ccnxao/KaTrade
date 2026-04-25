@@ -7,13 +7,11 @@ DEEPSEEK_API_KEY=
 KIMI_BASE_URL=https://api.moonshot.cn/v1
 KIMI_MODEL=kimi-k2.6
 
-# Kimi Coding Plan keys use the Coding endpoint and model.
-# KIMI_CODING_API_KEY can be omitted if MOONSHOT_API_KEY is your Kimi Coding Plan key.
-KIMI_CODING_API_KEY=
-KIMI_CODING_BASE_URL=https://api.kimi.com/coding/v1
+# Kimi Coding Plan is bridged through the local Kimi Code CLI.
+# KIMI_CLI_PATH is optional; the platform can extract the CLI bundled in the VS Code extension.
+KIMI_CLI_PATH=
 KIMI_CODING_MODEL=kimi-for-coding
-KIMI_CODING_MAX_TOKENS=32768
-KIMI_CODING_USER_AGENT=KaTradeLocalQuantAgent/0.1
+KIMI_CLI_MAX_STEPS=1
 
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-v4-flash

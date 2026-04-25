@@ -178,21 +178,19 @@ DEEPSEEK_API_KEY=your_deepseek_key
 KIMI_BASE_URL=https://api.moonshot.cn/v1
 KIMI_MODEL=kimi-k2.6
 
-# Kimi Coding Plan 使用独立 provider。
-# 如果 MOONSHOT_API_KEY 就是 Coding Plan key，可以不填 KIMI_CODING_API_KEY。
-KIMI_CODING_API_KEY=
-KIMI_CODING_BASE_URL=https://api.kimi.com/coding/v1
+# Kimi Coding Plan 通过本机 Kimi Code CLI 桥接。
+# KIMI_CLI_PATH 可选；平台会优先自动使用 VS Code 扩展里自带的 CLI。
+KIMI_CLI_PATH=
 KIMI_CODING_MODEL=kimi-for-coding
-KIMI_CODING_MAX_TOKENS=32768
-KIMI_CODING_USER_AGENT=KaTradeLocalQuantAgent/0.1
+KIMI_CLI_MAX_STEPS=1
 ```
 
 `config/api_key.config` 已经被 `.gitignore` 忽略，不会上传 GitHub。不要把真实
 API key 写入任何会提交到仓库的配置文件。
 
-Kimi Coding Plan 当前可能限制只能由官方支持的 Coding Agent 调用。本平台会以
-`KaTradeLocalQuantAgent/0.1` 标识自己，不会伪装成其他客户端；如果服务端返回
-403，请改用普通 Kimi Chat API key 或 DeepSeek。
+Kimi Coding Plan 当前由本机 Kimi Code CLI 桥接。平台会把运行上下文和问题传给
+CLI 的非交互 `--quiet` 模式，并把 CLI 工作目录限制在 `/tmp/katrade-kimi-agent-work`，
+避免它直接修改项目文件。
 
 默认模型：
 

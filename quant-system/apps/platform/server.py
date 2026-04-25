@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+import tarfile
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -19,6 +20,8 @@ LOG_DIR = ROOT / "logs"
 DEFAULT_CONFIG = ROOT / "config" / "default.cfg"
 API_KEY_CONFIG = ROOT / "config" / "api_key.config"
 LAST_PLATFORM_OUTPUT = LOG_DIR / "last_platform_run.txt"
+KIMI_CLI_EXTRACT_DIR = Path("/tmp/katrade-kimi-cli")
+KIMI_CLI_WORK_DIR = Path("/tmp/katrade-kimi-agent-work")
 
 PROVIDERS = {
     "kimi": {
@@ -31,16 +34,14 @@ PROVIDERS = {
     },
     "kimi_coding": {
         "name": "Kimi Coding Plan",
-        "base_url": "https://api.kimi.com/coding/v1",
-        "base_url_env": "KIMI_CODING_BASE_URL",
-        "env": "KIMI_CODING_API_KEY",
-        "env_aliases": ["MOONSHOT_API_KEY"],
+        "transport": "cli",
+        "base_url": "local Kimi Code CLI",
+        "base_url_env": "KIMI_CLI_PATH",
+        "env": "KIMI_CLI_PATH",
         "default_model": "kimi-for-coding",
         "model_env": "KIMI_CODING_MODEL",
-        "max_tokens_env": "KIMI_CODING_MAX_TOKENS",
-        "default_max_tokens": "32768",
-        "user_agent_env": "KIMI_CODING_USER_AGENT",
-        "default_user_agent": "KaTradeLocalQuantAgent/0.1",
+        "max_steps_env": "KIMI_CLI_MAX_STEPS",
+        "default_max_steps": "1",
     },
     "deepseek": {
         "name": "DeepSeek",
@@ -109,6 +110,9 @@ def get_local_setting(name: str, default: str) -> str:
 
 
 def provider_base_url(provider: dict[str, Any]) -> str:
+    if provider.get("transport") == "cli":
+        path, _ = resolve_kimi_cli()
+        return str(path) if path else provider["base_url"]
     return get_local_setting(provider["base_url_env"], provider["base_url"]).rstrip("/")
 
 
@@ -153,6 +157,66 @@ def provider_user_agent(provider: dict[str, Any]) -> str:
     if not env_name:
         return "KaTradeLocalQuantAgent/0.1"
     return get_local_setting(env_name, provider.get("default_user_agent", "KaTradeLocalQuantAgent/0.1"))
+
+
+def kimi_cli_candidates() -> list[Path]:
+    paths: list[Path] = []
+    configured = get_local_setting("KIMI_CLI_PATH", "")
+    if configured:
+        paths.append(Path(configured).expanduser())
+    paths.append(KIMI_CLI_EXTRACT_DIR / "kimi" / "kimi")
+    extension_root = Path.home() / ".vscode" / "extensions"
+    paths.extend(
+        sorted(
+            extension_root.glob("moonshot-ai.kimi-code-*-darwin-arm64/bin/uv-wrapper/kimi"),
+            reverse=True,
+        )
+    )
+    return paths
+
+
+def latest_kimi_cli_archive() -> Optional[Path]:
+    extension_root = Path.home() / ".vscode" / "extensions"
+    archives = sorted(
+        extension_root.glob("moonshot-ai.kimi-code-*-darwin-arm64/bin/kimi/archive.tar.gz"),
+        reverse=True,
+    )
+    return archives[0] if archives else None
+
+
+def is_executable_file(path: Path) -> bool:
+    return path.exists() and path.is_file() and os.access(path, os.X_OK)
+
+
+def extract_kimi_cli_from_archive() -> Optional[Path]:
+    target = KIMI_CLI_EXTRACT_DIR / "kimi" / "kimi"
+    if is_executable_file(target):
+        return target
+    archive = latest_kimi_cli_archive()
+    if archive is None:
+        return None
+    KIMI_CLI_EXTRACT_DIR.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(archive, "r:gz") as tar:
+        base = KIMI_CLI_EXTRACT_DIR.resolve()
+        for member in tar.getmembers():
+            destination = (KIMI_CLI_EXTRACT_DIR / member.name).resolve()
+            if not str(destination).startswith(str(base)):
+                raise ValueError(f"unsafe archive member: {member.name}")
+        tar.extractall(KIMI_CLI_EXTRACT_DIR)
+    return target if is_executable_file(target) else None
+
+
+def resolve_kimi_cli() -> tuple[Optional[Path], str]:
+    configured = get_local_setting("KIMI_CLI_PATH", "")
+    if configured and is_executable_file(Path(configured).expanduser()):
+        return Path(configured).expanduser(), local_setting_source("KIMI_CLI_PATH") or "config"
+    for path in kimi_cli_candidates():
+        if is_executable_file(path):
+            return path, "local Kimi Code CLI"
+    extracted = extract_kimi_cli_from_archive()
+    if extracted is not None:
+        return extracted, "VS Code Kimi Code extension"
+    return None, ""
 
 
 def write_config(values: dict[str, Any], path: Path = DEFAULT_CONFIG) -> None:
@@ -302,6 +366,8 @@ def call_agent(provider_key: str, model: str, prompt: str) -> dict[str, Any]:
     provider = PROVIDERS.get(provider_key)
     if provider is None:
         raise ValueError(f"不支持的服务商：{provider_key}")
+    if provider.get("transport") == "cli":
+        return call_kimi_cli_agent(provider, model, prompt)
 
     api_key = get_provider_api_key(provider)
     if not api_key:
@@ -381,6 +447,77 @@ def call_agent(provider_key: str, model: str, prompt: str) -> dict[str, Any]:
     }
 
 
+def call_kimi_cli_agent(provider: dict[str, Any], model: str, prompt: str) -> dict[str, Any]:
+    cli_path, source = resolve_kimi_cli()
+    if cli_path is None:
+        return {
+            "ok": False,
+            "error": "未找到可执行的 Kimi Code CLI。请安装 Kimi Code CLI，或设置 KIMI_CLI_PATH。",
+        }
+
+    selected_model = model.strip()
+    max_steps = get_local_setting(provider["max_steps_env"], provider["default_max_steps"])
+    KIMI_CLI_WORK_DIR.mkdir(parents=True, exist_ok=True)
+    full_prompt = (
+        "你是本地 KaTrade 量化研究助手。"
+        "请只基于下面提供的运行上下文回答，不要修改文件，不要调用工具，不要编造数据。\n\n"
+        f"运行上下文 JSON:\n{agent_context()}\n\n问题:\n{prompt}"
+    )
+    args = [
+        str(cli_path),
+        "--work-dir",
+        str(KIMI_CLI_WORK_DIR),
+        "--quiet",
+        "--max-steps-per-turn",
+        max_steps,
+        "-p",
+        full_prompt,
+    ]
+    if selected_model:
+        args[4:4] = ["--model", selected_model]
+    completed = subprocess.run(
+        args,
+        cwd=KIMI_CLI_WORK_DIR,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        timeout=180,
+        check=False,
+    )
+    output = completed.stdout.strip()
+    content = re.sub(r"\n+To resume this session:.*$", "", output, flags=re.DOTALL).strip()
+    return {
+        "ok": completed.returncode == 0,
+        "provider": provider["name"],
+        "model": selected_model or "kimi-cli-default",
+        "content": content,
+        "source": source,
+        "raw": output,
+        "error": "" if completed.returncode == 0 else content,
+    }
+
+
+def provider_status(provider: dict[str, Any]) -> dict[str, Any]:
+    if provider.get("transport") == "cli":
+        cli_path, source = resolve_kimi_cli()
+        return {
+            "name": provider["name"],
+            "default_model": provider_default_model(provider),
+            "base_url": str(cli_path) if cli_path else provider["base_url"],
+            "env": "KIMI_CLI_PATH",
+            "configured": cli_path is not None,
+            "source": source,
+        }
+    return {
+        "name": provider["name"],
+        "default_model": provider_default_model(provider),
+        "base_url": provider_base_url(provider),
+        "env": provider_api_key_label(provider),
+        "configured": bool(get_provider_api_key(provider)),
+        "source": provider_api_key_source(provider),
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "KaTradePlatform/0.1"
 
@@ -437,14 +574,7 @@ class Handler(BaseHTTPRequestHandler):
                     "equity_curve": parse_equity_curve(),
                     "events": read_events(80),
                     "providers": {
-                        key: {
-                            "name": value["name"],
-                            "default_model": provider_default_model(value),
-                            "base_url": provider_base_url(value),
-                            "env": provider_api_key_label(value),
-                            "configured": bool(get_provider_api_key(value)),
-                            "source": provider_api_key_source(value),
-                        }
+                        key: provider_status(value)
                         for key, value in PROVIDERS.items()
                     },
                     "binaries": {
