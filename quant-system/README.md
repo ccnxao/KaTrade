@@ -162,6 +162,9 @@ export DEEPSEEK_API_KEY=your_deepseek_key
 make platform
 ```
 
+不要把真实 API key 写入仓库配置。个人配置请使用 `.env`、`config/local.cfg` 或
+`config/*.local.cfg`，这些路径已经被 `.gitignore` 忽略。
+
 默认模型：
 
 - Kimi: `kimi-k2.6`
