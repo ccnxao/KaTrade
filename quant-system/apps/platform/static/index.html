@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KaTrade Platform</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="mark">K</div>
+          <div>
+            <strong>KaTrade</strong>
+            <span>Local quant platform</span>
+          </div>
+        </div>
+        <nav>
+          <a href="#dashboard">Dashboard</a>
+          <a href="#config">Config</a>
+          <a href="#events">Events</a>
+          <a href="#agent">Agent</a>
+        </nav>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <div>
+            <h1>Research Console</h1>
+            <p id="providerState">Providers loading</p>
+          </div>
+          <div class="actions">
+            <button id="runBacktest">Run backtest</button>
+            <button id="runChecks">Run checks</button>
+            <button id="runPricing">Pricing demo</button>
+          </div>
+        </header>
+
+        <section id="dashboard" class="grid metrics">
+          <div class="panel metric">
+            <span>Final equity</span>
+            <strong id="metricEquity">-</strong>
+          </div>
+          <div class="panel metric">
+            <span>Total return</span>
+            <strong id="metricReturn">-</strong>
+          </div>
+          <div class="panel metric">
+            <span>Max drawdown</span>
+            <strong id="metricDrawdown">-</strong>
+          </div>
+          <div class="panel metric">
+            <span>Fills</span>
+            <strong id="metricFills">-</strong>
+          </div>
+        </section>
+
+        <section class="panel chart-panel">
+          <div class="section-head">
+            <h2>Equity Curve</h2>
+            <span id="chartState">No run loaded</span>
+          </div>
+          <canvas id="equityChart" width="960" height="260"></canvas>
+        </section>
+
+        <section id="config" class="panel">
+          <div class="section-head">
+            <h2>Runtime Config</h2>
+            <button id="saveConfig">Save</button>
+          </div>
+          <div id="configGrid" class="config-grid"></div>
+        </section>
+
+        <section id="events" class="panel">
+          <div class="section-head">
+            <h2>Recent Events</h2>
+            <span id="eventCount">0 events</span>
+          </div>
+          <div id="eventsList" class="events-list"></div>
+        </section>
+
+        <section id="agent" class="panel agent-panel">
+          <div class="section-head">
+            <h2>Agent</h2>
+            <div class="inline-controls">
+              <select id="providerSelect">
+                <option value="kimi">Kimi</option>
+                <option value="deepseek">DeepSeek</option>
+              </select>
+              <input id="modelInput" placeholder="model" />
+            </div>
+          </div>
+          <textarea id="agentPrompt" rows="4">Analyze the latest backtest and identify the highest priority engineering improvement.</textarea>
+          <div class="agent-actions">
+            <button id="askAgent">Ask agent</button>
+          </div>
+          <pre id="agentOutput" class="output"></pre>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <h2>Command Output</h2>
+            <span id="commandState">Idle</span>
+          </div>
+          <pre id="commandOutput" class="output"></pre>
+        </section>
+      </main>
+    </div>
+    <script src="/app.js"></script>
+  </body>
+</html>

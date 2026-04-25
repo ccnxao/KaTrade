@@ -71,6 +71,18 @@ cmake --build build
 ./option_demo
 ```
 
+本地 UI 客户端：
+
+```bash
+make platform
+```
+
+然后打开：
+
+```text
+http://127.0.0.1:8787
+```
+
 ## 当前演示
 
 `traderd` 现在默认会读取 `data/sample_bars.csv`，跑一个多周期回测。
@@ -130,6 +142,30 @@ make check
 
 - [`events.jsonl`](/Users/snlnfy/Documents/量化交易/quant-system/logs/events.jsonl)
 - [`last_run_summary.txt`](/Users/snlnfy/Documents/量化交易/quant-system/logs/last_run_summary.txt)
+
+## UI 客户端与 Agent
+
+[`platform`](/Users/snlnfy/Documents/量化交易/quant-system/apps/platform/server.py) 是一个本地 Web 控制台，后端只使用 Python 标准库。它可以：
+
+- 运行回测
+- 运行回归检查
+- 运行期权定价 demo
+- 编辑 `config/default.cfg`
+- 查看事件日志、净值曲线、回测摘要
+- 调用 Kimi 或 DeepSeek 作为研究 Agent
+
+Agent API key 只从服务端环境变量读取：
+
+```bash
+export MOONSHOT_API_KEY=your_kimi_key
+export DEEPSEEK_API_KEY=your_deepseek_key
+make platform
+```
+
+默认模型：
+
+- Kimi: `kimi-k2.6`
+- DeepSeek: `deepseek-v4-flash`
 
 ## 期权定价模块
 

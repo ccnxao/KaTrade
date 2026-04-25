@@ -53,7 +53,10 @@ check: replay_check pricing_check
 	./replay_check
 	./pricing_check
 
+platform:
+	python3 apps/platform/server.py
+
 clean:
 	rm -f $(TARGETS)
 
-.PHONY: all run check clean
+.PHONY: all run check platform clean
