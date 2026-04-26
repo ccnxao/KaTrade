@@ -20,6 +20,7 @@ struct GoldenMetrics {
 
 void write_event_log_jsonl(const EventBus& event_bus, const std::string& path);
 void write_report_summary(const BacktestReport& report, const std::string& path);
+void write_backtest_report_json(const BacktestReport& report, const std::string& path);
 GoldenMetrics load_golden_metrics(const std::string& path);
 bool matches_golden_metrics(const BacktestReport& report,
                             const GoldenMetrics& metrics,

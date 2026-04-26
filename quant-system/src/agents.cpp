@@ -1,6 +1,5 @@
 #include "qt/agents.hpp"
 
-#include <algorithm>
 #include <cmath>
 
 namespace qt {

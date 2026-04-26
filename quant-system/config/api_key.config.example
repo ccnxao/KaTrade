@@ -1,0 +1,19 @@
+# Copy this file to api_key.config and fill in your local keys.
+# api_key.config is ignored by Git and must not be uploaded.
+MOONSHOT_API_KEY=
+DEEPSEEK_API_KEY=
+
+# Optional overrides. Use the endpoint that matches where your key was created.
+KIMI_BASE_URL=https://api.moonshot.cn/v1
+KIMI_MODEL=kimi-k2.6
+
+# Kimi Coding Plan is bridged through the local Kimi Code CLI.
+# KIMI_CLI_PATH is optional; the platform can extract the CLI bundled in the VS Code extension.
+KIMI_CLI_PATH=
+KIMI_CODING_API_KEY=
+KIMI_CODING_BASE_URL=https://api.kimi.com/coding/v1
+KIMI_CODING_MODEL=kimi-code/kimi-for-coding
+KIMI_CLI_MAX_STEPS=1
+
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-v4-flash

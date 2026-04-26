@@ -7,3 +7,14 @@ quant-system/option_demo
 quant-system/pricing_check
 quant-system/build/
 quant-system/logs/
+
+# Local private config and API keys. Keep real credentials off GitHub.
+quant-system/.env
+quant-system/.env.*
+!quant-system/.env.example
+quant-system/config/api_key.config
+quant-system/config/local.cfg
+quant-system/config/*.local.cfg
+quant-system/config/private*.cfg
+quant-system/config/secrets*.cfg
+quant-system/config/*secret*.cfg

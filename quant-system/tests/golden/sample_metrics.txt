@@ -2,8 +2,8 @@
 cycles=7
 event_count=64
 total_fills=18
-total_commission=19.52730293
-total_return=-0.01753648
-max_drawdown=0.02536683
-final_equity=981185.53589074
+total_commission=20.04000000
+total_return=-0.00227893
+max_drawdown=0.00968375
+final_equity=996749.38402928
 double_tolerance=0.0001

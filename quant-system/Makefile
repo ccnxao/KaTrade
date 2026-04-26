@@ -5,6 +5,10 @@ TARGETS := traderd replay_check option_demo pricing_check
 CORE_SOURCES := \
 	src/agents.cpp \
 	src/backtest_engine.cpp \
+	src/history_client.cpp \
+	src/strategies/factory.cpp \
+	src/strategies/mean_reversion.cpp \
+	src/strategies/trend.cpp \
 	src/portfolio.cpp \
 	src/portfolio_book.cpp \
 	src/pricing.cpp \
@@ -53,7 +57,13 @@ check: replay_check pricing_check
 	./replay_check
 	./pricing_check
 
+platform:
+	python3 apps/platform/server.py
+
+historyd:
+	python3 apps/historyd/server.py
+
 clean:
 	rm -f $(TARGETS)
 
-.PHONY: all run check clean
+.PHONY: all run check platform historyd clean

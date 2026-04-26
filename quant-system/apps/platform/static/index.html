@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KaTrade 量化平台</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <a class="brand" href="/dashboard" data-route="dashboard">
+          <div class="mark">K</div>
+          <div>
+            <strong>KaTrade</strong>
+            <span>本地量化平台</span>
+          </div>
+        </a>
+        <nav aria-label="主导航">
+          <a href="/dashboard" data-route="dashboard">总览</a>
+          <a href="/runs" data-route="runs">运行</a>
+          <a href="/report" data-route="report">报告</a>
+          <a href="/strategies" data-route="strategies">策略</a>
+          <a href="/data" data-route="data">数据</a>
+          <a href="/events" data-route="events">事件</a>
+          <a href="/config" data-route="config">配置</a>
+          <a href="/agent" data-route="agent">研究助手</a>
+        </nav>
+        <div class="side-note">
+          <span>本地只读 Agent</span>
+          <strong id="providerState">正在加载服务商</strong>
+        </div>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <div>
+            <button id="backButton" class="secondary back-button">返回</button>
+            <h1 id="pageTitle">研究控制台</h1>
+            <p id="pageSubtitle">本地回测、事件、配置和研究助手</p>
+          </div>
+          <div class="actions">
+            <button id="runBacktest">运行回测</button>
+            <button id="runChecks" class="secondary">运行检查</button>
+            <button id="runPricing" class="secondary">期权定价</button>
+          </div>
+        </header>
+
+        <section class="page active" data-page="dashboard">
+          <div class="grid metrics">
+            <div class="panel metric">
+              <span>最终权益</span>
+              <strong id="metricEquity">-</strong>
+            </div>
+            <div class="panel metric">
+              <span>总收益率</span>
+              <strong id="metricReturn">-</strong>
+            </div>
+            <div class="panel metric">
+              <span>最大回撤</span>
+              <strong id="metricDrawdown">-</strong>
+            </div>
+            <div class="panel metric">
+              <span>成交笔数</span>
+              <strong id="metricFills">-</strong>
+            </div>
+          </div>
+
+          <section class="panel chart-panel">
+            <div class="section-head">
+              <h2>净值曲线</h2>
+              <span id="chartState">未加载运行结果</span>
+            </div>
+            <canvas id="equityChart" width="960" height="260"></canvas>
+          </section>
+
+          <div class="grid route-grid">
+            <a class="route-card" href="/runs" data-route="runs">
+              <span>运行</span>
+              <strong>启动回测和检查</strong>
+            </a>
+            <a class="route-card" href="/events" data-route="events">
+              <span>事件</span>
+              <strong>查看订单和风控流</strong>
+            </a>
+            <a class="route-card" href="/report" data-route="report">
+              <span>报告</span>
+              <strong>复盘持仓和订单</strong>
+            </a>
+            <a class="route-card" href="/strategies" data-route="strategies">
+              <span>策略</span>
+              <strong>查看策略池和启用状态</strong>
+            </a>
+            <a class="route-card" href="/data" data-route="data">
+              <span>数据</span>
+              <strong>检查行情质量</strong>
+            </a>
+            <a class="route-card" href="/agent" data-route="agent">
+              <span>研究助手</span>
+              <strong>继续多轮分析</strong>
+            </a>
+          </div>
+        </section>
+
+        <section class="page" data-page="runs">
+          <section class="panel">
+            <div class="section-head">
+              <h2>运行控制</h2>
+              <span id="commandState">空闲</span>
+            </div>
+            <p class="muted">运行结果保存在本地 logs 目录，页面只读取本机输出。</p>
+          </section>
+          <section class="panel">
+            <div class="section-head">
+              <h2>命令输出</h2>
+              <span>最近一次任务</span>
+            </div>
+            <pre id="commandOutput" class="output"></pre>
+          </section>
+          <section class="panel">
+            <div class="section-head">
+              <h2>运行档案</h2>
+              <span id="runCount">0 次运行</span>
+            </div>
+            <div id="runHistory" class="table-list"></div>
+          </section>
+        </section>
+
+        <section class="page" data-page="report">
+          <section class="panel">
+            <div class="section-head">
+              <h2>组合状态</h2>
+              <span id="portfolioState">等待报告</span>
+            </div>
+            <div id="portfolioSummary" class="summary-grid"></div>
+            <div id="positionsTable" class="table-list"></div>
+          </section>
+          <section class="panel">
+            <div class="section-head">
+              <h2>订单与成交</h2>
+              <span id="ordersState">等待报告</span>
+            </div>
+            <div id="ordersTable" class="table-list"></div>
+          </section>
+          <section class="panel">
+            <div class="section-head">
+              <h2>策略与风控</h2>
+              <span id="riskState">等待报告</span>
+            </div>
+            <div id="strategyContribution" class="table-list"></div>
+            <div id="riskTimeline" class="table-list"></div>
+          </section>
+        </section>
+
+        <section class="page" data-page="strategies">
+          <section class="panel">
+            <div class="section-head">
+              <h2>策略池</h2>
+              <div class="inline-controls">
+                <span id="strategyCatalogState">等待策略目录</span>
+                <button id="saveStrategies" class="secondary">保存策略</button>
+                <button id="runStrategyBacktest">保存并回测</button>
+              </div>
+            </div>
+            <p class="muted">策略只产生信号，不直接下单；仓位、风控和订单生命周期由后续模块统一处理。</p>
+            <div id="strategyCatalog" class="strategy-grid"></div>
+          </section>
+        </section>
+
+        <section class="page" data-page="data">
+          <section class="panel">
+            <div class="section-head">
+              <h2>行情数据</h2>
+              <span id="dataState">等待数据</span>
+            </div>
+            <div id="dataProfile" class="summary-grid"></div>
+            <div id="dataWarnings" class="warning-list"></div>
+          </section>
+          <section class="panel">
+            <div class="section-head">
+              <h2>最近数据行</h2>
+              <span>CSV 预览</span>
+            </div>
+            <div id="dataPreview" class="table-list"></div>
+          </section>
+        </section>
+
+        <section class="page" data-page="events">
+          <section class="panel">
+            <div class="section-head">
+              <h2>最近事件</h2>
+              <span id="eventCount">0 条事件</span>
+            </div>
+            <div id="eventsList" class="events-list"></div>
+          </section>
+        </section>
+
+        <section class="page" data-page="config">
+          <section class="panel">
+            <div class="section-head">
+              <h2>运行配置</h2>
+              <button id="saveConfig">保存</button>
+            </div>
+            <div id="configGrid" class="config-grid"></div>
+          </section>
+        </section>
+
+        <section class="page" data-page="agent">
+          <section class="panel agent-panel">
+            <div class="section-head">
+              <h2>研究助手</h2>
+              <div class="inline-controls">
+                <select id="providerSelect">
+                  <option value="kimi">Kimi</option>
+                  <option value="kimi_coding">Kimi Coding Plan</option>
+                  <option value="deepseek">DeepSeek</option>
+                </select>
+                <input id="modelInput" placeholder="模型名称" />
+              </div>
+            </div>
+            <div class="agent-layout">
+              <aside class="sessions-panel">
+                <button id="newAgentSession">新会话</button>
+                <div id="agentSessions" class="session-list"></div>
+              </aside>
+              <div class="chat-panel">
+                <div id="agentStatus" class="muted">只读模式：Agent 不会直接修改项目文件。</div>
+                <div id="agentMessages" class="chat-messages"></div>
+                <div class="composer">
+                  <textarea id="agentPrompt" rows="4">分析最新回测结果，并指出当前优先级最高的工程改进。</textarea>
+                  <button id="askAgent">发送</button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+    <script src="/app.js"></script>
+  </body>
+</html>
