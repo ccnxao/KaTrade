@@ -11,6 +11,7 @@
 #include "qt/report_io.hpp"
 #include "qt/replay_data.hpp"
 #include "qt/runtime_config.hpp"
+#include "qt/strategy_module.hpp"
 #include "qt/trader_engine.hpp"
 
 namespace {
@@ -107,13 +108,17 @@ int main(int argc, char** argv) {
             argc > 1 ? argv[1] : "config/default.cfg";
         const auto config = qt::load_runtime_config(config_path);
         std::cout << "Config file: " << config_path << "\n";
-        std::cout << "Replay file: " << config.replay_path << "\n";
+        std::cout << "History mode: " << config.history_mode << "\n";
+        if (config.history_mode == "remote") {
+            std::cout << "History server: " << config.history_server_url << "\n";
+            std::cout << "History cache ttl seconds: "
+                      << config.history_cache_ttl_seconds << "\n";
+        } else {
+            std::cout << "Replay file: " << config.replay_path << "\n";
+        }
 
         qt::EventBus event_bus;
-        std::vector<std::unique_ptr<qt::ISignalAgent>> agents;
-        agents.push_back(std::make_unique<qt::MomentumAgent>());
-        agents.push_back(std::make_unique<qt::MeanReversionAgent>());
-        agents.push_back(std::make_unique<qt::DefensiveAgent>());
+        auto agents = qt::make_signal_agents(config);
 
         qt::TraderEngine engine(
             std::make_unique<qt::RuleBasedRegimeAgent>(),
@@ -131,7 +136,7 @@ int main(int argc, char** argv) {
             config.initial_cash,
             &event_bus);
 
-        const auto steps = qt::CsvReplayLoader::load(config.replay_path);
+        const auto steps = qt::ReplayDataSource::load(config);
         qt::BacktestEngine backtest(engine, &event_bus);
         const auto report = backtest.run(steps);
 
@@ -146,6 +151,7 @@ int main(int argc, char** argv) {
         print_report(report);
         qt::write_event_log_jsonl(event_bus, config.event_log_path);
         qt::write_report_summary(report, "logs/last_run_summary.txt");
+        qt::write_backtest_report_json(report, config.report_json_path);
 
         return 0;
     } catch (const std::exception& ex) {

@@ -10,6 +10,7 @@
 #include "qt/report_io.hpp"
 #include "qt/replay_data.hpp"
 #include "qt/runtime_config.hpp"
+#include "qt/strategy_module.hpp"
 #include "qt/trader_engine.hpp"
 
 int main(int argc, char** argv) {
@@ -23,10 +24,7 @@ int main(int argc, char** argv) {
         const auto golden = qt::load_golden_metrics(golden_path);
 
         qt::EventBus event_bus;
-        std::vector<std::unique_ptr<qt::ISignalAgent>> agents;
-        agents.push_back(std::make_unique<qt::MomentumAgent>());
-        agents.push_back(std::make_unique<qt::MeanReversionAgent>());
-        agents.push_back(std::make_unique<qt::DefensiveAgent>());
+        auto agents = qt::make_signal_agents(config);
 
         qt::TraderEngine engine(
             std::make_unique<qt::RuleBasedRegimeAgent>(),
@@ -44,7 +42,7 @@ int main(int argc, char** argv) {
             config.initial_cash,
             &event_bus);
 
-        const auto steps = qt::CsvReplayLoader::load(config.replay_path);
+        const auto steps = qt::ReplayDataSource::load(config);
         qt::BacktestEngine backtest(engine, &event_bus);
         const auto report = backtest.run(steps);
 

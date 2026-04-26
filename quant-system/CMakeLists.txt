@@ -8,6 +8,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_library(quant_core
     src/agents.cpp
     src/backtest_engine.cpp
+    src/history_client.cpp
+    src/strategies/factory.cpp
+    src/strategies/mean_reversion.cpp
+    src/strategies/trend.cpp
     src/portfolio.cpp
     src/portfolio_book.cpp
     src/pricing.cpp

@@ -2,7 +2,8 @@
 
 一个基于 `cpp_quant_trading_system_architecture.md` 的最小 C++20 量化交易系统骨架。
 
-当前版本已经具备一个可继续扩展的离线回测内核：
+当前版本定位为本地研究和纸面交易平台，不连接实盘券商，也不会替用户发出真实交易指令。
+它已经具备一个可继续扩展的离线回测内核：
 
 `CSV Replay -> Regime -> Signal Agents -> Portfolio Optimizer -> Risk Agent -> OMS -> Simulated Broker -> PortfolioBook -> Backtest`
 
@@ -16,10 +17,16 @@
 quant-system/
   include/qt/
   src/
+    strategies/
   apps/traderd/
+  apps/platform/
+  docs/
   Makefile
   CMakeLists.txt
 ```
+
+项目设计见 [`PROJECT_DESIGN.md`](/Users/snlnfy/Documents/量化交易/quant-system/docs/PROJECT_DESIGN.md)。
+架构和扩展约定见 [`ARCHITECTURE.md`](/Users/snlnfy/Documents/量化交易/quant-system/docs/ARCHITECTURE.md)。
 
 ## 已实现模块
 
@@ -27,6 +34,13 @@ quant-system/
 - `MomentumAgent`
 - `MeanReversionAgent`
 - `DefensiveAgent`
+- `DonchianBreakoutAgent`
+- `MovingAverageCrossAgent`
+- `MacdTrendAgent`
+- `BollingerReversionAgent`
+- `RsiReversionAgent`
+- `RangeFadeAgent`
+- `StrategyCatalog / StrategyFactory`
 - `SimplePortfolioOptimizer`
 - `RiskAgent`
 - `EventBus`
@@ -37,6 +51,7 @@ quant-system/
 - `TraderEngine`
 - `BacktestEngine`
 - `CsvReplayLoader`
+- `HistoryDataClient`
 - `RuntimeConfig`
 - `Event log / report writers`
 - `replay_check`
@@ -83,6 +98,27 @@ make platform
 http://127.0.0.1:8787
 ```
 
+独立历史数据服务：
+
+```bash
+make historyd
+```
+
+默认监听：
+
+```text
+http://127.0.0.1:8790
+```
+
+如果历史服务跑在另一台 Mac 上，可以在那台机器上设置：
+
+```bash
+export KATRADE_HISTORY_HOST=0.0.0.0
+export KATRADE_HISTORY_PORT=8790
+export KATRADE_HISTORY_REPLAY_PATH=/path/to/bars.csv
+make historyd
+```
+
 ## 当前演示
 
 `traderd` 现在默认会读取 `data/sample_bars.csv`，跑一个多周期回测。
@@ -107,8 +143,46 @@ timestamp,symbol,exchange,open,high,low,close,volume
 ```text
 replay_path=data/sample_bars.csv
 event_log_path=logs/events.jsonl
+report_json_path=logs/last_report.json
+strategy.enabled=momentum,mean_reversion,defensive,donchian_breakout,ma_cross,macd_trend,bollinger_reversion,rsi_reversion,range_fade
+history.mode=local
+history.server_url=http://127.0.0.1:8790
+history.contracts=AAPL.NASDAQ,MSFT.NASDAQ,GLD.ARCA
+history.cache_dir=logs/cache/history
+history.cache_ttl_seconds=1800
+strategy.donchian.lookback=3
+strategy.ma_cross.fast_window=2
+strategy.ma_cross.slow_window=4
+strategy.macd.fast_alpha=0.55
+strategy.macd.slow_alpha=0.30
+strategy.macd.signal_alpha=0.45
+strategy.bollinger.window=4
+strategy.bollinger.band_width=1.2
+strategy.rsi.window=4
+strategy.rsi.oversold=35
+strategy.rsi.overbought=65
 initial_cash=1000000
 optimizer.max_single_weight=0.35
+```
+
+默认策略分组：
+
+- 趋势市：`momentum`、`donchian_breakout`、`ma_cross`、`macd_trend`
+- 震荡市：`mean_reversion`、`bollinger_reversion`、`rsi_reversion`、`range_fade`
+- 防御/压力环境：`defensive`
+
+历史数据模式：
+
+- `history.mode=local`：直接读取 `replay_path`。
+- `history.mode=remote`：从 `history.server_url` 按 `history.contracts` 拉取数据。
+- 本地只保存短期缓存，缓存目录为 `history.cache_dir`。
+- `history.cache_ttl_seconds=1800` 表示合约数据半小时不用就会在下一次拉数前删除。
+
+远端历史服务配置样例见：
+
+```bash
+cp config/remote_history.example.cfg config/my_remote_history.local.cfg
+./traderd config/my_remote_history.local.cfg
 ```
 
 输出内容包括：
@@ -120,7 +194,7 @@ optimizer.max_single_weight=0.35
 - 成交回报
 - 账本净值、现金、已实现/未实现盈亏
 - 事件流日志
-- 整体回测汇总和净值曲线
+- 结构化 JSON 报告、整体回测汇总和净值曲线
 
 ## 回归校验
 
@@ -142,6 +216,7 @@ make check
 
 - [`events.jsonl`](/Users/snlnfy/Documents/量化交易/quant-system/logs/events.jsonl)
 - [`last_run_summary.txt`](/Users/snlnfy/Documents/量化交易/quant-system/logs/last_run_summary.txt)
+- `last_report.json`
 
 ## UI 客户端与 Agent
 
@@ -152,7 +227,14 @@ make check
 - 运行期权定价 demo
 - 编辑 `config/default.cfg`
 - 查看事件日志、净值曲线、回测摘要
+- 查看结构化回测报告：持仓、成交、信号、风控周期
+- 查看并管理策略池：策略 ID、中文名、市场类型、启用状态、关键参数
+- 检查 CSV 行情数据质量
+- 保存每次运行档案到 `logs/runs/`
 - 调用 Kimi 或 DeepSeek 作为研究 Agent
+
+策略页可以直接保存 `strategy.enabled` 和策略参数。保存后运行回测时，
+C++ 策略工厂会使用配置文件中的参数创建策略实例。
 
 Agent API key 优先从服务端环境变量读取：
 
@@ -181,7 +263,9 @@ KIMI_MODEL=kimi-k2.6
 # Kimi Coding Plan 通过本机 Kimi Code CLI 桥接。
 # KIMI_CLI_PATH 可选；平台会优先自动使用 VS Code 扩展里自带的 CLI。
 KIMI_CLI_PATH=
-KIMI_CODING_MODEL=kimi-for-coding
+KIMI_CODING_API_KEY=
+KIMI_CODING_BASE_URL=https://api.kimi.com/coding/v1
+KIMI_CODING_MODEL=kimi-code/kimi-for-coding
 KIMI_CLI_MAX_STEPS=1
 ```
 
@@ -191,12 +275,25 @@ API key 写入任何会提交到仓库的配置文件。
 Kimi Coding Plan 当前由本机 Kimi Code CLI 桥接。平台会把运行上下文和问题传给
 CLI 的非交互 `--quiet` 模式，并把 CLI 工作目录限制在 `/tmp/katrade-kimi-agent-work`，
 避免它直接修改项目文件。
+如果你没有用 `kimi login` 完成 CLI 登录，可以在本地 `config/api_key.config` 中设置
+`KIMI_CODING_API_KEY`，平台会只在启动 Kimi CLI 子进程时映射成官方文档里的
+`KIMI_API_KEY`。
 
 默认模型：
 
 - Kimi: `kimi-k2.6`
-- Kimi Coding Plan: `kimi-for-coding`
+- Kimi Coding Plan: `kimi-code/kimi-for-coding`
 - DeepSeek: `deepseek-v4-flash`
+
+平台页面：
+
+- `/dashboard`: 总览和净值曲线
+- `/runs`: 运行回测、检查、期权定价，并查看运行档案
+- `/report`: 结构化复盘持仓、成交、信号和风控
+- `/data`: CSV 行情数据体检
+- `/events`: 事件流
+- `/config`: 本地运行配置
+- `/agent`: 多轮研究助手
 
 ## 期权定价模块
 

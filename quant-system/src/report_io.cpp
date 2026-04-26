@@ -94,6 +94,105 @@ std::string event_type_name(const Event& event) {
         event.payload);
 }
 
+void write_instrument_json(std::ostream& output, const InstrumentId& instrument) {
+    output << "{\"symbol\":\"" << escape_json(instrument.symbol)
+           << "\",\"exchange\":\"" << escape_json(instrument.exchange)
+           << "\",\"key\":\"" << escape_json(instrument_key(instrument)) << "\"}";
+}
+
+void write_position_json(std::ostream& output, const Position& position) {
+    output << "{\"instrument\":";
+    write_instrument_json(output, position.instrument);
+    output << ",\"quantity\":" << position.quantity
+           << ",\"avg_cost\":" << position.avg_cost
+           << ",\"market_price\":" << position.market_price
+           << ",\"market_value\":" << position.market_value
+           << ",\"weight\":" << position.weight << "}";
+}
+
+void write_portfolio_json(std::ostream& output, const PortfolioSnapshot& portfolio) {
+    output << "{\"cash\":" << portfolio.cash
+           << ",\"equity\":" << portfolio.equity
+           << ",\"cash_weight\":" << portfolio.cash_weight
+           << ",\"realized_pnl\":" << portfolio.realized_pnl
+           << ",\"unrealized_pnl\":" << portfolio.unrealized_pnl
+           << ",\"gross_exposure\":" << gross_exposure(portfolio)
+           << ",\"positions\":[";
+    for (std::size_t index = 0; index < portfolio.positions.size(); ++index) {
+        if (index > 0) {
+            output << ",";
+        }
+        write_position_json(output, portfolio.positions[index]);
+    }
+    output << "]}";
+}
+
+void write_target_portfolio_json(std::ostream& output, const TargetPortfolio& portfolio) {
+    output << "{\"optimizer_version\":\"" << escape_json(portfolio.optimizer_version)
+           << "\",\"expected_turnover\":" << portfolio.expected_turnover
+           << ",\"expected_cost_bps\":" << portfolio.expected_cost_bps
+           << ",\"gross_exposure\":" << gross_exposure(portfolio)
+           << ",\"positions\":[";
+    for (std::size_t index = 0; index < portfolio.positions.size(); ++index) {
+        if (index > 0) {
+            output << ",";
+        }
+        const auto& position = portfolio.positions[index];
+        output << "{\"instrument\":";
+        write_instrument_json(output, position.instrument);
+        output << ",\"target_weight\":" << position.target_weight << "}";
+    }
+    output << "]}";
+}
+
+void write_signal_json(std::ostream& output, const Signal& signal) {
+    output << "{\"strategy_id\":\"" << escape_json(signal.strategy_id)
+           << "\",\"instrument\":";
+    write_instrument_json(output, signal.instrument);
+    output << ",\"score\":" << signal.score
+           << ",\"confidence\":" << signal.confidence << "}";
+}
+
+void write_order_intent_json(std::ostream& output, const OrderIntent& intent) {
+    output << "{\"instrument\":";
+    write_instrument_json(output, intent.instrument);
+    output << ",\"side\":\"" << to_string(intent.side)
+           << "\",\"type\":\"" << (intent.type == OrderType::Market ? "Market" : "Limit")
+           << "\",\"quantity\":" << intent.quantity
+           << ",\"reference_price\":" << intent.reference_price
+           << ",\"parent_decision_id\":\"" << escape_json(intent.parent_decision_id)
+           << "\"}";
+}
+
+void write_order_record_json(std::ostream& output, const OrderRecord& record) {
+    output << "{\"order_id\":\"" << escape_json(record.order_id)
+           << "\",\"intent\":";
+    write_order_intent_json(output, record.intent);
+    output << ",\"status\":\"" << to_string(record.status)
+           << "\",\"filled_qty\":" << record.filled_qty
+           << ",\"remaining_qty\":" << record.remaining_qty
+           << ",\"avg_price\":" << record.avg_price
+           << ",\"commission\":" << record.commission << "}";
+}
+
+void write_execution_report_json(std::ostream& output,
+                                 const ExecutionReport& report) {
+    output << "{\"order_id\":\"" << escape_json(report.order_id)
+           << "\",\"instrument\":";
+    write_instrument_json(output, report.instrument);
+    output << ",\"side\":\"" << to_string(report.side)
+           << "\",\"last_fill_qty\":" << report.last_fill_qty
+           << ",\"last_fill_price\":" << report.last_fill_price
+           << ",\"cumulative_filled_qty\":" << report.cumulative_filled_qty
+           << ",\"remaining_qty\":" << report.remaining_qty
+           << ",\"avg_price\":" << report.avg_price
+           << ",\"commission\":" << report.commission
+           << ",\"slippage_bps\":" << report.slippage_bps
+           << ",\"status\":\"" << to_string(report.status)
+           << "\",\"broker_status\":\"" << escape_json(report.broker_status)
+           << "\"}";
+}
+
 }  // namespace
 
 void write_event_log_jsonl(const EventBus& event_bus, const std::string& path) {
@@ -165,6 +264,122 @@ void write_report_summary(const BacktestReport& report, const std::string& path)
     output << "final_equity="
            << (report.equity_curve.empty() ? 0.0 : report.equity_curve.back().equity)
            << "\n";
+}
+
+void write_backtest_report_json(const BacktestReport& report, const std::string& path) {
+    ensure_parent_directory(path);
+    std::ofstream output(path);
+    if (!output.is_open()) {
+        throw std::runtime_error("failed to open backtest report path: " + path);
+    }
+
+    output << std::fixed << std::setprecision(8);
+    const double final_equity =
+        report.equity_curve.empty() ? 0.0 : report.equity_curve.back().equity;
+
+    output << "{";
+    output << "\"summary\":{"
+           << "\"cycles\":" << report.cycles.size()
+           << ",\"event_count\":" << report.event_count
+           << ",\"total_fills\":" << report.total_fills
+           << ",\"total_commission\":" << report.total_commission
+           << ",\"total_return\":" << report.total_return
+           << ",\"max_drawdown\":" << report.max_drawdown
+           << ",\"final_equity\":" << final_equity
+           << "},";
+
+    output << "\"equity_curve\":[";
+    for (std::size_t index = 0; index < report.equity_curve.size(); ++index) {
+        if (index > 0) {
+            output << ",";
+        }
+        const auto& point = report.equity_curve[index];
+        output << "{\"cycle_index\":" << point.cycle_index
+               << ",\"label\":\"" << escape_json(point.label)
+               << "\",\"equity\":" << point.equity
+               << ",\"cash\":" << point.cash
+               << ",\"gross_exposure\":" << point.gross_exposure
+               << ",\"realized_pnl\":" << point.realized_pnl
+               << ",\"unrealized_pnl\":" << point.unrealized_pnl
+               << "}";
+    }
+    output << "],";
+
+    output << "\"cycles\":[";
+    for (std::size_t cycle_index = 0; cycle_index < report.cycles.size(); ++cycle_index) {
+        if (cycle_index > 0) {
+            output << ",";
+        }
+        const auto& cycle = report.cycles[cycle_index];
+        output << "{\"cycle_index\":" << cycle.cycle_index
+               << ",\"label\":\"" << escape_json(cycle.cycle_label) << "\",";
+
+        output << "\"features\":{";
+        std::size_t feature_index = 0;
+        for (const auto& [key, value] : cycle.features) {
+            if (feature_index++ > 0) {
+                output << ",";
+            }
+            output << "\"" << escape_json(key) << "\":" << value;
+        }
+        output << "},";
+
+        output << "\"regime\":{"
+               << "\"regime\":\"" << to_string(cycle.regime.regime)
+               << "\",\"confidence\":" << cycle.regime.confidence
+               << ",\"momentum_weight\":" << cycle.regime.momentum_weight
+               << ",\"mean_revert_weight\":" << cycle.regime.mean_revert_weight
+               << ",\"defensive_weight\":" << cycle.regime.defensive_weight
+               << ",\"model_version\":\"" << escape_json(cycle.regime.model_version)
+               << "\"},";
+
+        output << "\"signals\":[";
+        for (std::size_t index = 0; index < cycle.signals.size(); ++index) {
+            if (index > 0) {
+                output << ",";
+            }
+            write_signal_json(output, cycle.signals[index]);
+        }
+        output << "],";
+
+        output << "\"target_portfolio\":";
+        write_target_portfolio_json(output, cycle.target_portfolio);
+        output << ",\"risk_decision\":{\"action\":\""
+               << to_string(cycle.risk_decision.action)
+               << "\",\"reason\":\"" << escape_json(cycle.risk_decision.reason)
+               << "\",\"adjusted_portfolio\":";
+        write_target_portfolio_json(output, cycle.risk_decision.adjusted_portfolio);
+        output << "},";
+
+        output << "\"pre_trade_portfolio\":";
+        write_portfolio_json(output, cycle.pre_trade_portfolio);
+        output << ",\"post_trade_portfolio\":";
+        write_portfolio_json(output, cycle.post_trade_portfolio);
+
+        output << ",\"orders\":[";
+        for (std::size_t index = 0; index < cycle.orders.size(); ++index) {
+            if (index > 0) {
+                output << ",";
+            }
+            write_order_intent_json(output, cycle.orders[index]);
+        }
+        output << "],\"order_records\":[";
+        for (std::size_t index = 0; index < cycle.order_records.size(); ++index) {
+            if (index > 0) {
+                output << ",";
+            }
+            write_order_record_json(output, cycle.order_records[index]);
+        }
+        output << "],\"reports\":[";
+        for (std::size_t index = 0; index < cycle.reports.size(); ++index) {
+            if (index > 0) {
+                output << ",";
+            }
+            write_execution_report_json(output, cycle.reports[index]);
+        }
+        output << "]}";
+    }
+    output << "]}";
 }
 
 GoldenMetrics load_golden_metrics(const std::string& path) {

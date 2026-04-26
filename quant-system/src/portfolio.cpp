@@ -9,10 +9,13 @@ namespace qt {
 namespace {
 
 double strategy_weight(const std::string& strategy_id, const RegimeState& regime) {
-    if (strategy_id == "momentum") {
+    if (strategy_id == "momentum" || strategy_id == "donchian_breakout" ||
+        strategy_id == "ma_cross") {
         return regime.momentum_weight;
     }
-    if (strategy_id == "mean_reversion") {
+    if (strategy_id == "mean_reversion" ||
+        strategy_id == "bollinger_reversion" ||
+        strategy_id == "range_fade") {
         return regime.mean_revert_weight;
     }
     if (strategy_id == "defensive") {
