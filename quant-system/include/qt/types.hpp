@@ -2,6 +2,8 @@
 
 #include <cmath>
 #include <cstdint>
+#include <deque>
+#include <map>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -17,12 +19,16 @@ struct InstrumentId {
     std::string exchange;
 };
 
-inline std::string instrument_key(const InstrumentId& instrument) {
-    return instrument.symbol + "." + instrument.exchange;
+inline const std::string& instrument_key(const InstrumentId& instrument) {
+    // node-based map 保证引用稳定；每个品种 key 只拼接一次
+    static std::map<std::string, std::string> cache;
+    auto combined = instrument.symbol + "." + instrument.exchange;
+    auto [it, _] = cache.try_emplace(combined, combined);
+    return it->second;
 }
 
 struct Bar {
-    std::string timestamp;
+    std::int64_t timestamp{};
     InstrumentId instrument;
     double open{};
     double high{};
@@ -36,9 +42,12 @@ enum class Regime { Trending, MeanReverting, Crisis, Uncertain };
 struct RegimeState {
     Regime regime{Regime::Uncertain};
     double confidence{0.0};
-    double momentum_weight{0.33};
-    double mean_revert_weight{0.33};
-    double defensive_weight{0.34};
+    double momentum_weight{0.33};     // M：趋势策略资金权重
+    double mean_revert_weight{0.33};  // R：反转策略资金权重
+    double defensive_weight{0.34};    // D：防御策略资金权重
+    double trending_prob{0.33};       // P(Trending) — 趋势状态概率
+    double mean_revert_prob{0.33};    // P(MeanReverting) — 反转状态概率
+    double defensive_prob{0.34};      // P(Defensive/Crisis) — 防御状态概率
     std::string model_version{"rule_v1"};
 };
 
@@ -52,6 +61,7 @@ struct Signal {
 struct TargetPosition {
     InstrumentId instrument;
     double target_weight{};
+    std::string strategy_id;
 };
 
 struct TargetPortfolio {
@@ -79,6 +89,7 @@ struct OrderIntent {
     double quantity{};
     double reference_price{};
     std::string parent_decision_id;
+    std::string strategy_id;
 };
 
 enum class OrderStatus {

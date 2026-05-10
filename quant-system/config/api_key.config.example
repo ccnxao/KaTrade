@@ -17,3 +17,30 @@ KIMI_CLI_MAX_STEPS=1
 
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-v4-flash
+
+# Trading broker boundary: OKX / 欧意 only.
+# Public market data works without keys. Private account/order calls require keys.
+# Keep simulated trading on unless you are only using read-only real account queries.
+OKX_BASE_URL=https://www.okx.com
+# Mainland-friendly access: official OKX REST remains https://www.okx.com.
+# aws.okx.com has been discontinued by OKX. Add comma-separated official regional domains only when your account requires them.
+OKX_BASE_URLS=https://www.okx.com
+OKX_REQUEST_TIMEOUT_SECONDS=4
+OKX_API_KEY=
+OKX_SECRET_KEY=
+OKX_PASSPHRASE=
+# First connection flow: keep simulated=true and trading_enabled=false, run API预检,
+# verify balance/orders, then temporarily set trading_enabled=true only for simulated orders.
+# Execution guardrails: only OKX SPOT/cash is allowed; platform-generated candidates use limit/post_only maker orders.
+# You can also save these values from /live; the platform writes this ignored local file.
+OKX_SIMULATED_TRADING=true
+OKX_TRADING_ENABLED=false
+OKX_CRYPTO_INSTRUMENTS=BTC-USDT,ETH-USDT,SOL-USDT,XRP-USDT,DOGE-USDT,ADA-USDT,BNB-USDT,OKB-USDT,LTC-USDT,BCH-USDT,LINK-USDT,AVAX-USDT,DOT-USDT,TRX-USDT,TON-USDT,UNI-USDT,AAVE-USDT,PEPE-USDT,SHIB-USDT,SUI-USDT,OP-USDT,ARB-USDT,NEAR-USDT,FIL-USDT,ETC-USDT,ATOM-USDT,APT-USDT,INJ-USDT,WLD-USDT,POL-USDT,CRV-USDT,LDO-USDT,RENDER-USDT,ICP-USDT,SEI-USDT,ENS-USDT,ORDI-USDT,SATS-USDT,JUP-USDT
+# Default product policy: virtual/paper runner orders must be visible on OKX simulated trading.
+# Set false only for local execution-model debugging.
+PAPER_REQUIRE_OKX_AUTO_SUBMIT=true
+
+# Optional real gold 1m CSV. Without this file, the gold page stays empty.
+# Required columns:
+# timestamp,open,high,low,close,volume
+KATRADE_GOLD_1M_PATH=

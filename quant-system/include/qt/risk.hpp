@@ -1,56 +1,32 @@
 #pragma once
-
-#include <memory>
-#include <optional>
-#include <string>
-#include <vector>
-
-#include "qt/types.hpp"
+#include "qt/risk/risk_agent.hpp"
+#include "qt/risk/risk_rule.hpp"
+#include "qt/risk/kill_switch.hpp"
+#include "qt/risk/risk_budget.hpp"
+#include "qt/risk/stress_test.hpp"
 
 namespace qt {
-
-class IRiskRule {
-public:
-    virtual ~IRiskRule() = default;
-    virtual std::optional<std::string> check(const TargetPortfolio& target,
-                                             const PortfolioSnapshot& current,
-                                             const FeatureFrame& features) const = 0;
-};
-
-class MaxPositionRule final : public IRiskRule {
-public:
-    explicit MaxPositionRule(double max_abs_weight);
-    std::optional<std::string> check(const TargetPortfolio& target,
-                                     const PortfolioSnapshot& current,
-                                     const FeatureFrame& features) const override;
-
-private:
-    double max_abs_weight_;
-};
-
-class MaxGrossExposureRule final : public IRiskRule {
-public:
-    explicit MaxGrossExposureRule(double max_gross);
-    std::optional<std::string> check(const TargetPortfolio& target,
-                                     const PortfolioSnapshot& current,
-                                     const FeatureFrame& features) const override;
-
-private:
-    double max_gross_;
-};
-
-class RiskAgent {
-public:
-    RiskAgent(double max_abs_weight, double max_gross);
-
-    RiskDecision review(const TargetPortfolio& target,
-                        const PortfolioSnapshot& current,
-                        const FeatureFrame& features);
-
-private:
-    double max_abs_weight_;
-    double max_gross_;
-    std::vector<std::unique_ptr<IRiskRule>> rules_;
-};
-
+using qt::risk::RiskAgent;
+using qt::risk::RiskBudgetAllocator;
+using qt::risk::RiskBudgetCheck;
+using qt::risk::RiskBudgetConfig;
+using qt::risk::RiskBudgetDecision;
+using qt::risk::RiskBudgetInput;
+using qt::risk::IRiskRule;
+using qt::risk::AccountState;
+using qt::risk::MarketState;
+using qt::risk::StrategyBudgetUsage;
+using qt::risk::KillSwitch;
+using qt::risk::KillSwitchLevel;
+using qt::risk::StressTester;
+using qt::risk::StressScenario;
+using qt::risk::StressTestResult;
+using qt::risk::PositionLimitRule;
+using qt::risk::LeverageLimitRule;
+using qt::risk::DrawdownCircuitRule;
+using qt::risk::VolatilityScaleRule;
+using qt::risk::LiquidityRule;
+using qt::risk::CorrelationShockRule;
+using qt::risk::ConcentrationRule;
+using qt::risk::StaleDataRule;
 }  // namespace qt

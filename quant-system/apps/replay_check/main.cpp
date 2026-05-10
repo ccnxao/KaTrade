@@ -24,23 +24,51 @@ int main(int argc, char** argv) {
         const auto golden = qt::load_golden_metrics(golden_path);
 
         qt::EventBus event_bus;
+        auto meta_agent = std::make_unique<qt::agent::MetaAgent>(
+            std::make_unique<qt::agent::RuleBasedRegimeAgent>(
+                config.regime_rule_crisis_vol,
+                config.regime_rule_crisis_corr,
+                config.regime_rule_trending_adx,
+                config.regime_rule_trending_ret,
+                config.regime_rule_trending_vol_cap,
+                config.regime_rule_mean_revert_adx,
+                config.regime_rule_mean_revert_vol_cap));
         auto agents = qt::make_signal_agents(config);
+        auto risk_agent = std::make_unique<qt::RiskAgent>(
+            config.risk_max_single_weight,
+            config.risk_max_gross,
+            config.risk_kill_switch);
+        risk_agent->set_thresholds(
+            config.risk_drawdown_limit,
+            config.risk_vol_threshold,
+            config.risk_vol_reduction,
+            config.risk_stress_tolerance);
+        auto execution = std::make_unique<qt::execution::NaiveExecutionAlgo>(
+            config.execution_min_rebalance_delta);
+        auto broker = std::make_unique<qt::execution::SimulatedBrokerGateway>(
+            config.execution_max_participation_rate,
+            config.execution_slippage_bps,
+            config.execution_commission_bps,
+            config.execution_partial_fill_prob);
+        auto oms =
+            std::make_unique<qt::execution::OrderManagementSystem>(std::move(broker));
 
         qt::TraderEngine engine(
-            std::make_unique<qt::RuleBasedRegimeAgent>(),
+            std::move(meta_agent),
             std::move(agents),
             std::make_unique<qt::SimplePortfolioOptimizer>(
                 config.optimizer_max_single_weight,
                 config.optimizer_max_gross),
-            std::make_unique<qt::RiskAgent>(config.risk_max_single_weight,
-                                            config.risk_max_gross),
-            std::make_unique<qt::NaiveExecutionAlgo>(
-                config.execution_min_rebalance_delta),
-            std::make_unique<qt::OrderManagementSystem>(
-                std::make_unique<qt::PaperBrokerGateway>(
-                    config.execution_max_participation_rate)),
+            std::move(risk_agent),
+            std::move(execution),
+            std::move(oms),
             config.initial_cash,
             &event_bus);
+        engine.set_execution_params(
+            config.execution_slippage_bps,
+            config.execution_commission_bps,
+            config.execution_partial_fill_prob,
+            config.execution_default_ord_type);
 
         const auto steps = qt::ReplayDataSource::load(config);
         qt::BacktestEngine backtest(engine, &event_bus);

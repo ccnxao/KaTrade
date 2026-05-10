@@ -1,241 +1,318 @@
 <!doctype html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>KaTrade 量化平台</title>
-    <link rel="stylesheet" href="/styles.css" />
-  </head>
-  <body>
-    <div class="shell">
-      <aside class="sidebar">
-        <a class="brand" href="/dashboard" data-route="dashboard">
-          <div class="mark">K</div>
-          <div>
-            <strong>KaTrade</strong>
-            <span>本地量化平台</span>
-          </div>
-        </a>
-        <nav aria-label="主导航">
-          <a href="/dashboard" data-route="dashboard">总览</a>
-          <a href="/runs" data-route="runs">运行</a>
-          <a href="/report" data-route="report">报告</a>
-          <a href="/strategies" data-route="strategies">策略</a>
-          <a href="/data" data-route="data">数据</a>
-          <a href="/events" data-route="events">事件</a>
-          <a href="/config" data-route="config">配置</a>
-          <a href="/agent" data-route="agent">研究助手</a>
-        </nav>
-        <div class="side-note">
-          <span>本地只读 Agent</span>
-          <strong id="providerState">正在加载服务商</strong>
-        </div>
-      </aside>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KaTrade 量化平台</title>
+<link rel="stylesheet" href="/styles.css?v=6" />
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+  <a class="brand" href="/dashboard" data-route="dashboard">
+    <div class="mark">KT</div><div><strong>KaTrade</strong><span>OKX 自动交易控制台</span></div>
+  </a>
+  <nav>
+    <a href="/dashboard" data-route="dashboard">总览</a>
+    <a href="/paper" data-route="paper">虚拟盘</a>
+    <a href="/strategies" data-route="strategies">策略</a>
+    <a href="/agents" data-route="agents">交易Agent</a>
+    <a href="/market" data-route="market">行情</a>
+    <a href="/orders" data-route="orders">订单</a>
+    <a href="/risk" data-route="risk">风控</a>
+    <a href="/events" data-route="events">事件</a>
+    <a href="/config" data-route="config">配置</a>
+    <a href="/okx" data-route="okx">OKX</a>
+  </nav>
+  <div class="side-note"><span>本地平台</span><strong id="providerState">等待服务商</strong></div>
+</aside>
 
-      <main>
-        <header class="topbar">
-          <div>
-            <button id="backButton" class="secondary back-button">返回</button>
-            <h1 id="pageTitle">研究控制台</h1>
-            <p id="pageSubtitle">本地回测、事件、配置和研究助手</p>
-          </div>
-          <div class="actions">
-            <button id="runBacktest">运行回测</button>
-            <button id="runChecks" class="secondary">运行检查</button>
-            <button id="runPricing" class="secondary">期权定价</button>
-          </div>
-        </header>
-
-        <section class="page active" data-page="dashboard">
-          <div class="grid metrics">
-            <div class="panel metric">
-              <span>最终权益</span>
-              <strong id="metricEquity">-</strong>
-            </div>
-            <div class="panel metric">
-              <span>总收益率</span>
-              <strong id="metricReturn">-</strong>
-            </div>
-            <div class="panel metric">
-              <span>最大回撤</span>
-              <strong id="metricDrawdown">-</strong>
-            </div>
-            <div class="panel metric">
-              <span>成交笔数</span>
-              <strong id="metricFills">-</strong>
-            </div>
-          </div>
-
-          <section class="panel chart-panel">
-            <div class="section-head">
-              <h2>净值曲线</h2>
-              <span id="chartState">未加载运行结果</span>
-            </div>
-            <canvas id="equityChart" width="960" height="260"></canvas>
-          </section>
-
-          <div class="grid route-grid">
-            <a class="route-card" href="/runs" data-route="runs">
-              <span>运行</span>
-              <strong>启动回测和检查</strong>
-            </a>
-            <a class="route-card" href="/events" data-route="events">
-              <span>事件</span>
-              <strong>查看订单和风控流</strong>
-            </a>
-            <a class="route-card" href="/report" data-route="report">
-              <span>报告</span>
-              <strong>复盘持仓和订单</strong>
-            </a>
-            <a class="route-card" href="/strategies" data-route="strategies">
-              <span>策略</span>
-              <strong>查看策略池和启用状态</strong>
-            </a>
-            <a class="route-card" href="/data" data-route="data">
-              <span>数据</span>
-              <strong>检查行情质量</strong>
-            </a>
-            <a class="route-card" href="/agent" data-route="agent">
-              <span>研究助手</span>
-              <strong>继续多轮分析</strong>
-            </a>
-          </div>
-        </section>
-
-        <section class="page" data-page="runs">
-          <section class="panel">
-            <div class="section-head">
-              <h2>运行控制</h2>
-              <span id="commandState">空闲</span>
-            </div>
-            <p class="muted">运行结果保存在本地 logs 目录，页面只读取本机输出。</p>
-          </section>
-          <section class="panel">
-            <div class="section-head">
-              <h2>命令输出</h2>
-              <span>最近一次任务</span>
-            </div>
-            <pre id="commandOutput" class="output"></pre>
-          </section>
-          <section class="panel">
-            <div class="section-head">
-              <h2>运行档案</h2>
-              <span id="runCount">0 次运行</span>
-            </div>
-            <div id="runHistory" class="table-list"></div>
-          </section>
-        </section>
-
-        <section class="page" data-page="report">
-          <section class="panel">
-            <div class="section-head">
-              <h2>组合状态</h2>
-              <span id="portfolioState">等待报告</span>
-            </div>
-            <div id="portfolioSummary" class="summary-grid"></div>
-            <div id="positionsTable" class="table-list"></div>
-          </section>
-          <section class="panel">
-            <div class="section-head">
-              <h2>订单与成交</h2>
-              <span id="ordersState">等待报告</span>
-            </div>
-            <div id="ordersTable" class="table-list"></div>
-          </section>
-          <section class="panel">
-            <div class="section-head">
-              <h2>策略与风控</h2>
-              <span id="riskState">等待报告</span>
-            </div>
-            <div id="strategyContribution" class="table-list"></div>
-            <div id="riskTimeline" class="table-list"></div>
-          </section>
-        </section>
-
-        <section class="page" data-page="strategies">
-          <section class="panel">
-            <div class="section-head">
-              <h2>策略池</h2>
-              <div class="inline-controls">
-                <span id="strategyCatalogState">等待策略目录</span>
-                <button id="saveStrategies" class="secondary">保存策略</button>
-                <button id="runStrategyBacktest">保存并回测</button>
-              </div>
-            </div>
-            <p class="muted">策略只产生信号，不直接下单；仓位、风控和订单生命周期由后续模块统一处理。</p>
-            <div id="strategyCatalog" class="strategy-grid"></div>
-          </section>
-        </section>
-
-        <section class="page" data-page="data">
-          <section class="panel">
-            <div class="section-head">
-              <h2>行情数据</h2>
-              <span id="dataState">等待数据</span>
-            </div>
-            <div id="dataProfile" class="summary-grid"></div>
-            <div id="dataWarnings" class="warning-list"></div>
-          </section>
-          <section class="panel">
-            <div class="section-head">
-              <h2>最近数据行</h2>
-              <span>CSV 预览</span>
-            </div>
-            <div id="dataPreview" class="table-list"></div>
-          </section>
-        </section>
-
-        <section class="page" data-page="events">
-          <section class="panel">
-            <div class="section-head">
-              <h2>最近事件</h2>
-              <span id="eventCount">0 条事件</span>
-            </div>
-            <div id="eventsList" class="events-list"></div>
-          </section>
-        </section>
-
-        <section class="page" data-page="config">
-          <section class="panel">
-            <div class="section-head">
-              <h2>运行配置</h2>
-              <button id="saveConfig">保存</button>
-            </div>
-            <div id="configGrid" class="config-grid"></div>
-          </section>
-        </section>
-
-        <section class="page" data-page="agent">
-          <section class="panel agent-panel">
-            <div class="section-head">
-              <h2>研究助手</h2>
-              <div class="inline-controls">
-                <select id="providerSelect">
-                  <option value="kimi">Kimi</option>
-                  <option value="kimi_coding">Kimi Coding Plan</option>
-                  <option value="deepseek">DeepSeek</option>
-                </select>
-                <input id="modelInput" placeholder="模型名称" />
-              </div>
-            </div>
-            <div class="agent-layout">
-              <aside class="sessions-panel">
-                <button id="newAgentSession">新会话</button>
-                <div id="agentSessions" class="session-list"></div>
-              </aside>
-              <div class="chat-panel">
-                <div id="agentStatus" class="muted">只读模式：Agent 不会直接修改项目文件。</div>
-                <div id="agentMessages" class="chat-messages"></div>
-                <div class="composer">
-                  <textarea id="agentPrompt" rows="4">分析最新回测结果，并指出当前优先级最高的工程改进。</textarea>
-                  <button id="askAgent">发送</button>
-                </div>
-              </div>
-            </div>
-          </section>
-        </section>
-      </main>
+<main>
+<header class="topbar">
+  <div class="topbar-left">
+    <span class="status-dot" id="statusDot"></span>
+    <div>
+      <h1 id="pageTitle">总览</h1>
+      <p id="pageSubtitle">净值、收益、回撤和市场状态</p>
     </div>
-    <script src="/app.js"></script>
-  </body>
+  </div>
+  <div class="topbar-right">
+    <span class="status-pill neutral" id="topbarOkx">OKX -</span>
+    <span class="status-pill neutral" id="topbarPaper">虚拟盘 -</span>
+    <span class="status-pill neutral" id="topbarCxx">C++ -</span>
+    <span id="topbarClock"></span>
+  </div>
+</header>
+
+<!-- ============ 总览 ============ -->
+<section class="page active" data-page="dashboard">
+  <div class="grid metrics">
+    <div class="panel metric"><span>权益</span><strong id="metricEquity">-</strong></div>
+    <div class="panel metric"><span>总收益</span><strong id="metricReturn">-</strong></div>
+    <div class="panel metric"><span>最大回撤</span><strong id="metricDrawdown">-</strong></div>
+    <div class="panel metric"><span>成交笔数</span><strong id="metricFills">-</strong></div>
+  </div>
+  <div class="grid metrics" style="margin-top:1px">
+    <div class="panel metric"><span>Sharpe 比率</span><strong id="metricSharpe">-</strong></div>
+    <div class="panel metric"><span>信号总数</span><strong id="metricSignals">-</strong></div>
+    <div class="panel metric"><span>活跃策略</span><strong id="metricStrategies">-</strong></div>
+    <div class="panel metric"><span>总手续费</span><strong id="metricCommission">-</strong></div>
+  </div>
+
+  <section class="ops-ribbon" id="dashboardOpsRibbon"></section>
+
+  <section class="panel" style="margin-bottom:8px">
+    <div class="section-head"><h2>市场状态</h2><span id="regimeLabel">-</span></div>
+    <div id="regimeByInstrument" class="metric-row" style="display:flex;gap:12px;flex-wrap:wrap"></div>
+  </section>
+
+  <div class="dashboard-hero">
+    <section class="panel">
+      <div class="section-head"><h2>OKX 连接</h2><span id="okxPanelState">-</span></div>
+      <div id="okxPanelSummary" class="summary-grid"></div>
+    </section>
+    <section class="panel">
+      <div class="section-head"><h2>数据文件</h2><span id="dataProfileState">-</span></div>
+      <div id="dataProfileSummary" class="summary-grid"></div>
+    </section>
+  </div>
+
+  <section class="panel" style="margin-bottom:8px">
+    <div class="section-head"><h2>持仓概览</h2><span id="positionOverviewLabel">-</span></div>
+    <div id="positionOverviewCards" class="metric-row" style="display:flex;gap:12px;flex-wrap:wrap"></div>
+  </section>
+
+  <section class="panel chart-panel">
+    <div class="section-head"><h2>净值曲线</h2><span id="chartState">等待数据</span></div>
+    <div id="equitySummary" class="summary-grid compact-summary"></div>
+    <canvas id="equityChart" width="960" height="260"></canvas>
+    <div id="equityLegend" class="chart-legend"></div>
+  </section>
+
+  <section class="panel">
+    <div class="section-head"><h2>C++ 后端核心</h2><span id="backendCoreState">等待摘要</span></div>
+    <div id="backendCoreSummary" class="summary-grid"></div>
+    <div id="backendCoreDetails" class="table-list"></div>
+  </section>
+</section>
+
+<!-- ============ 虚拟盘 ============ -->
+<section class="page" data-page="paper">
+  <div class="grid metrics">
+    <div class="panel metric"><span>状态</span><strong id="paperState">等待数据</strong></div>
+    <div class="panel metric"><span>最近成功</span><strong id="paperLastTickState">-</strong></div>
+    <div class="panel metric"><span>下一轮</span><strong id="paperNextTickState">-</strong></div>
+    <div class="panel metric"><span>挂单</span><strong id="paperOrderState">-</strong></div>
+  </div>
+
+  <section class="panel">
+    <div class="section-head"><h2>运行快照</h2><span id="paperRuntimeState">-</span></div>
+    <div id="paperRuntimeSummary" class="summary-grid compact-summary"></div>
+  </section>
+
+  <section class="panel">
+    <div class="section-head"><h2>虚拟盘控制</h2></div>
+    <div class="inline-controls" style="flex-wrap:wrap;gap:8px">
+      <label>品种 <input id="paperInstruments" value="BTC-USDT-SWAP" style="width:180px" /></label>
+      <label>模式 <select id="paperRunMode"><option value="realtime">实时(C++引擎)</option></select></label>
+      <label>轮询秒 <input id="paperPollSeconds" value="60" style="width:60px" /></label>
+      <label>OKX自动提交 <input type="checkbox" id="paperOkxAutoSubmit" checked /></label>
+      <button id="paperStartBtn">启动</button>
+      <button id="paperStopBtn" class="secondary">停止</button>
+      <span class="status-pill neutral" id="paperAutoRefreshState">自动刷新 -</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="section-head"><h2>C++ 实时引擎</h2><span id="cxxEngineState">-</span></div>
+    <div id="cxxEngineSummary" class="summary-grid"></div>
+  </section>
+
+  <section class="panel">
+    <div class="section-head"><h2>策略选择</h2><span id="paperStrategyState">-</span></div>
+    <div id="paperStrategyPicker" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+  </section>
+
+  <section class="panel">
+    <div class="section-head"><h2>绩效</h2></div>
+    <div id="paperPerformanceSummary" class="summary-grid"></div>
+    <div id="paperDataQualitySummary" class="summary-grid"></div>
+  </section>
+
+  <section class="panel">
+    <div class="section-head"><h2>虚拟盘持仓</h2><span id="paperPortfolioState2">-</span></div>
+    <div id="paperPortfolioTable" class="table-list"></div>
+  </section>
+
+  <section class="panel">
+    <div class="section-head"><h2>OKX 自动提交</h2><span id="paperOkxAutoState">-</span></div>
+    <div id="paperOkxAutoSummary" class="summary-grid"></div>
+    <div id="paperOkxAutoTable" class="table-list"></div>
+  </section>
+
+  <section class="panel">
+    <div class="section-head"><h2>订单流水</h2><span id="paperTradeState">-</span></div>
+    <div id="paperTradesTable" class="table-list"></div>
+  </section>
+
+  <section class="panel">
+    <div class="section-head"><h2>诊断</h2><span id="paperDiagnosticsState">-</span></div>
+    <div id="paperDiagnosticsSummary" class="summary-grid"></div>
+    <div id="paperDiagnosticsChecks" class="table-list"></div>
+    <div id="paperStrategyDiagnosticsTable" class="table-list"></div>
+  </section>
+</section>
+
+<!-- ============ 策略 ============ -->
+<section class="page" data-page="strategies">
+  <section class="panel">
+    <div class="section-head"><h2>策略池</h2><span id="strategyCatalogState">-</span></div>
+    <div id="strategyCatalog" class="strategy-grid"></div>
+  </section>
+</section>
+
+<!-- ============ 交易Agent ============ -->
+<section class="page" data-page="agents">
+  <section class="panel agent-workspace">
+    <div class="section-head"><h2>Agent 资金池</h2><span id="agentPageStatus">等待数据</span></div>
+    <div id="agentCapitalSummary" class="summary-grid agent-summary"></div>
+    <div class="agent-grid">
+      <section class="subpanel">
+        <div class="subhead"><strong>资金分配</strong><span>Capital</span></div>
+        <div id="agentCapitalTable" class="table-list"></div>
+      </section>
+      <section class="subpanel">
+        <div class="subhead"><strong>盈亏贡献</strong><span>PnL</span></div>
+        <div id="agentAttributionSummary" class="summary-grid agent-mini-summary"></div>
+        <div id="agentPnlBars" class="agent-bars"></div>
+      </section>
+    </div>
+    <section class="subpanel">
+      <div class="subhead"><strong>绩效明细</strong><span>Performance</span></div>
+      <div id="agentPerformanceTable" class="table-list"></div>
+    </section>
+    <section class="subpanel">
+      <div class="subhead"><strong>C++账户读模型</strong><span>Positions & PnL</span></div>
+      <div id="agentBackendPnlSummary" class="summary-grid agent-mini-summary"></div>
+      <div id="agentBackendPositionsTable" class="table-list"></div>
+    </section>
+  </section>
+</section>
+
+<!-- ============ 行情 ============ -->
+<section class="page" data-page="market">
+  <section class="panel">
+    <div class="section-head"><h2>行情状态</h2><span id="marketStreamState">-</span></div>
+    <div id="marketStreamSummary" class="summary-grid"></div>
+  </section>
+  <section class="panel">
+    <div class="section-head"><h2>Ticker 报价</h2><span id="marketTickersState"></span></div>
+    <div id="marketTickersTable" class="table-list"></div>
+  </section>
+  <section class="panel">
+    <div class="section-head"><h2>最近成交</h2><span id="marketTradesState"></span></div>
+    <div id="marketTradesTable" class="table-list"></div>
+  </section>
+</section>
+
+<!-- ============ 订单 ============ -->
+<section class="page" data-page="orders">
+  <section class="panel">
+    <div class="section-head"><h2>订单中心</h2><span id="ordersCenterState">-</span></div>
+    <div id="ordersCenterSummary" class="summary-grid compact-summary"></div>
+  </section>
+  <section class="panel">
+    <div class="section-head"><h2>C++ 一致性巡检</h2><span id="ordersConsistencyState">-</span></div>
+    <div id="ordersConsistencySummary" class="summary-grid compact-summary"></div>
+    <div id="ordersConsistencyTable" class="table-list"></div>
+  </section>
+  <section class="panel">
+    <div class="section-head"><h2>订单生命周期</h2><span id="ordersLifecycleState">-</span></div>
+    <div id="ordersLifecycleTable" class="table-list"></div>
+  </section>
+  <section class="panel">
+    <div class="section-head"><h2>OKX 提交记录</h2><span id="ordersOkxState">-</span></div>
+    <div id="ordersCenterTable" class="table-list"></div>
+  </section>
+</section>
+
+<!-- ============ 风控 ============ -->
+<section class="page" data-page="risk">
+  <section class="panel">
+    <div class="section-head"><h2>风控状态</h2><span id="riskCenterState">-</span></div>
+    <div id="riskCenterSummary" class="summary-grid"></div>
+    <div id="riskCenterChecks" class="table-list"></div>
+  </section>
+  <section class="panel chart-panel">
+    <div class="section-head"><h2>资金曲线</h2><span id="riskEquityState">等待C++数据</span></div>
+    <div id="riskEquitySummary" class="summary-grid compact-summary"></div>
+    <canvas id="riskEquityChart" width="960" height="240"></canvas>
+    <div id="riskEquityLegend" class="chart-legend"></div>
+  </section>
+</section>
+
+<!-- ============ 事件 ============ -->
+<section class="page" data-page="events">
+  <section class="panel">
+    <div class="section-head"><h2>事件日志</h2><span id="eventCount">0 条</span></div>
+    <div id="eventsList" class="events-list"></div>
+  </section>
+</section>
+
+<!-- ============ OKX ============ -->
+<section class="page" data-page="okx">
+  <section class="panel">
+    <div class="section-head"><h2>OKX API 配置</h2><span id="okxConfigState">-</span></div>
+    <div id="okxConfigSummary" class="summary-grid"></div>
+  </section>
+  <section class="panel">
+    <div class="section-head"><h2>API 密钥</h2></div>
+    <div class="field">
+      <label>API Key</label>
+      <input id="okxApiKey" placeholder="OKX API Key" style="width:100%" />
+    </div>
+    <div class="field" style="margin-top:8px">
+      <label>Secret Key</label>
+      <input id="okxSecretKey" type="password" placeholder="OKX Secret Key" style="width:100%" />
+    </div>
+    <div class="field" style="margin-top:8px">
+      <label>Passphrase</label>
+      <input id="okxPassphrase" type="password" placeholder="OKX Passphrase" style="width:100%" />
+    </div>
+    <div class="field" style="margin-top:8px">
+      <label>Base URL</label>
+      <input id="okxBaseUrl" placeholder="https://www.okx.com" style="width:100%" />
+    </div>
+    <div class="field" style="margin-top:8px">
+      <label>模拟盘</label>
+      <label style="display:flex;align-items:center;gap:6px;margin-top:4px">
+        <input type="checkbox" id="okxSimulated" checked /> 启用模拟盘（不提交真实订单）
+      </label>
+    </div>
+    <button id="saveOkxConfig" style="margin-top:12px">保存</button>
+  </section>
+</section>
+
+<!-- ============ 配置 ============ -->
+<section class="page" data-page="config">
+  <section class="panel">
+    <div class="section-head"><h2>运行配置</h2><button id="saveConfig">保存</button></div>
+    <div id="configGrid" class="config-grid"></div>
+  </section>
+</section>
+
+</main>
+</div>
+
+<script src="/app.js?v=8"></script>
+
+<div class="status-bar">
+  <span id="statusBarLeft">KaTrade 量化平台</span>
+  <div>
+    <span id="statusBarMid">等待连接</span>
+    <span class="sep">|</span>
+    <span id="statusBarRight">--:--:--</span>
+  </div>
+</div>
+</body>
 </html>

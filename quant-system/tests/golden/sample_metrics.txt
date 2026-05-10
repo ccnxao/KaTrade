@@ -1,9 +1,9 @@
 # expected metrics for config/default.cfg against data/sample_bars.csv
 cycles=7
-event_count=64
-total_fills=18
-total_commission=20.04000000
-total_return=-0.00227893
-max_drawdown=0.00968375
-final_equity=996749.38402928
+event_count=66
+total_fills=29
+total_commission=102.41036053
+total_return=-0.01039057
+max_drawdown=0.02022582
+final_equity=989520.16826752
 double_tolerance=0.0001

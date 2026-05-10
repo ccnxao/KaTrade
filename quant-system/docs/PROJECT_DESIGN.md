@@ -12,7 +12,7 @@ KaTrade 的目标是本地优先的量化研究与交易平台：
 - 支持独立历史数据服务器，可运行在另一台 Mac。
 - 支持本地 Web 客户端，用于运行、配置、查看报告和管理策略。
 - 支持 Kimi / DeepSeek / Kimi Code 类 Agent 作为研究助手。
-- 默认只运行离线回测和 paper trading，不默认连接实盘券商。
+- 默认只运行离线回测、paper trading 和 OKX/欧意 simulated trading，不连接真实资金交易通道。
 
 非目标：
 
@@ -35,7 +35,11 @@ KaTrade 的目标是本地优先的量化研究与交易平台：
 
 6. 风控不可绕过：任何订单进入 broker 前必须经过 pre-trade risk。
 
-7. 本地隐私优先：API key 和交易凭证只保存在本地 ignored 配置或系统安全存储中。
+7. 交易后端优先 Modern C++20：除浏览器 UI 和过渡期本地 HTTP 壳层外，策略、风控、执行、订单状态、行情处理和运维门禁都应逐步落到 C++ 模块。
+
+8. 本地隐私优先：API key 和交易凭证只保存在本地 ignored 配置或系统安全存储中。
+
+9. 执行门禁可测试：OKX simulated execution 的现货、cash、limit/post_only、kill switch、名义金额和白名单检查必须有 C++ 可复现检查覆盖，UI/API 不应成为唯一安全边界。
 
 ## 3. 总体架构
 
@@ -179,6 +183,22 @@ flowchart LR
 - `HistoryDataClient`
 - `ReplayDataSource`
 - 短期缓存 TTL：`history.cache_ttl_seconds`
+- `/market` 黄金 1m K 线视图：后端按当前视窗聚合，前端 Canvas 渲染，支持两年范围内缩放和平移。
+- `KATRADE_GOLD_1M_PATH` / `data/gold_1m.csv` 真实 CSV 数据入口；未配置时黄金视图不生成、不展示模拟 K 线。
+- historyd OKX 公开历史行情接口：`/api/okx/candles`、`/api/okx/tickers`、`/api/okx/bars.csv`。
+- `/market` 默认通过 `history.server_url` 请求 historyd，按当前时间窗口返回聚合 K 线；historyd 不可用时降级平台直连 OKX。
+- historyd OKX 分片缓存：`/api/okx/series` 查看缓存覆盖，`POST /api/okx/backfill` 后台回填大窗口历史数据，`POST /api/okx/backfill/cancel` 请求取消任务。
+- `/market` 历史回填面板：按当前合约和 bar 启动回填、查看缓存覆盖、查看任务进度；两年级别 1m 数据不阻塞 UI。
+- `/live` OKX/欧意适配器：读取本地 ignored 配置，支持账户、余额、现货委托、订单查询、模拟盘 post_only 挂单和对账；当前唯一交易券商为 OKX。
+- `/crypto` OKX / 欧意公开行情：支持 BTC-USDT、ETH-USDT、XAUT-USDT 等配置合约的 ticker 和 K 线。
+- `/crypto` 加密策略回测入口：按 OKX 合约、K 线周期、历史窗口临时切换远端历史配置，运行 C++ 回测并归档实验。
+- `/live` OKX 私有适配器：支持余额、当前委托查询；模拟盘下单/撤单接口默认关闭。
+- `/risk` 风控中心：查看 kill switch、单笔名义金额上限、敞口限制和最近回撤；kill switch 会写入配置并阻断新的 OKX 模拟盘订单。
+- `/risk` 自动化运行门禁：只读聚合 runner、行情流、OKX 模拟盘配置、自动提交门禁、事件错误和陈旧挂单，给出 allow/watch/block 决策和建议动作。
+- `/paper` 逐笔虚拟盘：后台 runner 优先消费 OKX 公共 WS 逐笔成交，REST 仅作兜底；在 tick 引擎里生成信号、目标组合、风控决策和 maker 挂单，并保存最近持仓、权益曲线、成交流水、摘要和交易标注。
+- `/paper` OKX simulated execution：虚拟盘默认要求挂到 OKX 模拟盘，合格委托会按 SPOT/cash、`post_only`、单笔名义、活跃挂单数、行情延迟、引擎耗时和 kill switch 门禁自动提交；候选计划仍用于审查虚拟盘订单如何映射到 OKX 工单。
+- `/paper` OKX 对账：可先保存当前 OKX 模拟盘余额和虚拟盘持仓为本地基准，再手动读取余额和订单状态，对比双方基准后的持仓净变化和最近订单生命周期。
+- `/market` 与 `/crypto` K 线标注：从结构化 report 映射信号、委托、成交、滑点、风控动作、目标权重等指标到对应时间和合约，同时叠加 MA、布林带、VWAP 技术指标图层。
 
 下一步设计：
 
@@ -201,6 +221,8 @@ apps/historyd/
 - `GET /api/bars.csv?contract=AAPL.NASDAQ&from=2020-01-01&to=2026-01-01`
 - `GET /api/calendar?exchange=NASDAQ`
 - `GET /api/quality?dataset=us_daily_v1`
+- `POST /api/okx/backfill` 启动远端历史回填，不阻塞平台进程。
+- `GET /api/okx/series` 返回短期缓存覆盖，用于 UI 判断是否需要继续回填。
 
 数据版本字段：
 
@@ -256,6 +278,17 @@ public:
 - 策略输出分数和置信度。
 - 参数必须进入 catalog 和配置文件。
 
+当前已有：
+
+- 文件版 `ExperimentTracker`：每次 Web 回测完成后会写入 `logs/experiments/exp-*`。
+- 文件版 `ParameterSweepRunner`：`/api/parameter_sweep` 只允许扫描策略 catalog 中声明过的参数，运行结束后恢复原配置。
+- 文件版 `WalkForwardRunner`：`/api/walk_forward` 按本地 CSV 时间窗切分训练/测试；训练窗选择候选参数，测试窗生成样本外实验归档。
+- `/runs` 运行质量门禁：基于本地 `logs/runs/*` 检查回测状态、周期数、权益、回撤、敞口、成本和事件流，并比较最近两次运行核心指标变化。
+- `/experiments` 页面：查看实验 ID、代码版本、扫描参数、Walk-forward 折结果、策略数、收益、回撤、Sharpe、成本 bps 和最终权益，并支持勾选实验排序对比。
+- 实验归档包含 `experiment.json`、`metrics.json`、`report.json`、`events.jsonl`、`stdout.txt`、`config.cfg`。
+- Walk-forward 归档保存在 `logs/walk_forward/wf-*`，包含 `walk_forward.json`、各折训练/测试 CSV、训练候选报告和测试报告。
+- Agent 上下文会包含最近实验和 Walk-forward 列表，便于基于历史结果做研究建议。
+
 目标实验对象：
 
 ```json
@@ -273,18 +306,11 @@ public:
 }
 ```
 
-需要新增：
-
-- `ExperimentTracker`
-- `ParameterSweepRunner`
-- `WalkForwardRunner`
-- `/experiments` 页面
-
 验收标准：
 
 - 每次回测都有实验 ID。
 - UI 能比较多次实验收益、回撤、换手、成交次数。
-- 参数扫描结果可排序、可复跑。
+- 参数扫描和 Walk-forward 样本外结果可排序、可复盘。
 
 ### 5.3 Backtest Plane
 
@@ -430,8 +456,15 @@ Kill switch：
 职责：
 
 - 管理订单生命周期。
-- 支持 paper broker 和真实 broker adapter。
+- 支持本地 paper broker 和 OKX/欧意 simulated trading adapter。
 - 做成交回报、持仓对账、现金对账。
+
+当前已有：
+
+- `IBrokerGateway` 作为 OMS 的统一 broker 边界。
+- `PaperBrokerGateway` 用于回测/纸面撮合。
+- OKX/欧意 simulated trading 作为当前唯一外部券商通道；非 OKX 适配器不再保留在产品代码路径中。
+- `/live` 页面展示 OKX/欧意连接配置状态和安全边界。
 
 订单状态机：
 
@@ -528,13 +561,21 @@ logs/
 - `GET /api/status`
 - `GET /api/strategies`
 - `POST /api/strategies/config`
+- `GET /api/runs/quality`
 - `POST /api/backtests`
 - `GET /api/backtests/:id`
 - `GET /api/experiments`
 - `GET /api/experiments/:id`
 - `POST /api/sweeps`
+- `POST /api/walk_forward`
+- `GET /api/walk_forward`
+- `POST /api/crypto/backtest`
 - `GET /api/risk/status`
-- `POST /api/risk/kill-switch`
+- `POST /api/risk/kill_switch`
+- `GET /api/ops/readiness`
+- `POST /api/ops/freeze`
+- `GET /api/ops/alerts`
+- `POST /api/ops/alerts/ack`
 
 ### 5.7 UI Client
 
@@ -542,11 +583,15 @@ logs/
 
 - `/dashboard`: 总览、最近运行、风险状态。
 - `/strategies`: 策略池、启停、参数配置。
-- `/experiments`: 实验列表、指标排序、参数对比。
+- `/experiments`: 实验列表、指标排序、参数对比、Walk-forward 样本外验证。
+- `/market`: 默认 OKX BTC、ETH 实时行情终端，Canvas 渲染、滚轮缩放、拖拽平移、十字光标、自动刷新、虚拟盘标注和 MA/布林带/VWAP 图层；黄金视图只读取真实 CSV，未配置时保持空状态。
+- `/crypto`: OKX BTC、ETH、XAUT 行情、K 线指标图层和加密策略回测入口。
+- `/paper`: 策略虚拟盘，支持策略集选择、逐笔后台 runner、手动 tick、OKX 模拟盘自动提交门禁、实时引擎性能遥测、权益曲线、成交流水、纸面持仓、运行摘要和 K 线交易标注。
+- `/live`: OKX/欧意连接状态和安全边界。
 - `/backtests`: 回测任务、运行日志。
 - `/report`: 单次报告细节。
 - `/data`: 数据质量、远端历史服务状态。
-- `/risk`: 风控规则、敞口、kill switch。
+- `/risk`: 风控规则、敞口、单笔名义金额、kill switch、自动化冻结、自动化运行门禁和运维告警。
 - `/orders`: 订单、成交、对账。
 - `/agent`: 多轮研究助手。
 
@@ -589,6 +634,7 @@ Agent 的定位是研究助手：
 ```text
 history.*
 strategy.*
+metrics.*
 optimizer.*
 risk.*
 execution.*
@@ -607,6 +653,14 @@ strategy.rsi.oversold=30
 strategy.rsi.overbought=70
 ```
 
+指标配置：
+
+```text
+metrics.drawdown_stride=1
+```
+
+`metrics.drawdown_stride=1` 保持最大回撤精确计算；高频虚拟盘监控或大样本回测可以调大该值，用采样方式弱化在线回撤计算成本。策略内部的 Donchian、MA、Bollinger、RSI 指标由 C++ 滚动状态维护，避免每根 K 线重复扫描窗口。
+
 风控配置：
 
 ```text
@@ -624,6 +678,10 @@ execution.mode=paper
 execution.min_rebalance_delta=0.02
 execution.max_participation_rate=0.04
 execution.max_slippage_bps=50
+execution.maker_offset_bps=2.0
+execution.maker_fee_bps=1.0
+execution.max_expected_cost_bps=50
+execution.pending_order_ttl_bars=1
 ```
 
 ## 7. 数据存储设计
@@ -700,8 +758,22 @@ risk_events
 
 - `config/api_key.config` ignored。
 - `logs/` ignored。
-- live broker key 不进入 Git。
+- OKX/欧意 key 不进入 Git。
 - API response 不返回真实 key。
+- 非 OKX 券商适配器不再保留在产品路径中；交易接口统一走 OKX/欧意安全门禁。
+- OKX key 只显示 masked key；secret/passphrase 只显示配置状态。
+- OKX key 可从 `/live` 保存到本地 ignored 的 `config/api_key.config`，接口不回显 secret/passphrase。
+- 中国大陆网络下 OKX REST 仍使用官方 `https://www.okx.com`；`aws.okx.com` 已停止服务，不应配置。`OKX_BASE_URLS` 仅用于官方/区域域名候选，GET 可回退，POST 下单不自动重试。
+- `OKX_REQUEST_TIMEOUT_SECONDS` 默认 4 秒，API 预检和只读请求失败后快速返回，避免页面长时间阻塞。
+- OKX 只读私有请求遇到 `APIKey does not match current environment` 时，会用相反 simulated header 重试并在预检中标警告；该自动重试仅限 GET，只读成功不代表允许自动下单。
+- OKX 候选执行计划会独立检查模拟盘 key 环境；实盘 key 即使可只读，也不会被判定为模拟盘提交就绪。
+- OKX API 预检分为公开检查和只读私有检查；只读私有检查必须带 `OKX_READ_ONLY_CHECK` 确认字段，才会向 OKX 发送签名请求。
+- OKX 试挂单生成器会按当前盘口生成小额 SPOT/cash `post_only` 工单并预检；该接口只返回工单，不提交订单。
+- OKX 下单前检查先执行 C++ `okx_policy` 门禁，再执行 OKX SPOT 规则、数量步长和价格 tick 校验；检查接口不提交订单。
+- OKX 执行层暂时禁用合约、杠杆、市价、IOC、FOK；虚拟盘候选执行会生成 post_only 限价挂单。
+- OKX 下单/撤单只允许 `OKX_SIMULATED_TRADING=true`，并要求 `OKX_TRADING_ENABLED=true`、模拟盘 key 环境检查通过和对应确认字段。
+- OKX 订单状态同步会从本地审计里的最近订单查询 OKX 单笔订单详情，若状态、成交数量、均价或更新时间变化则追加 `order_synced` 审计。
+- OKX 下单/撤单结果写入 `logs/broker/okx_audit.jsonl`，用于本地审计和故障排查。
 - Agent prompt 不包含真实 key。
 
 后续增强：
@@ -748,17 +820,18 @@ risk_events
 - 独立历史数据服务。
 - 策略 catalog 和策略参数。
 - 结构化报告。
+- 扩展回测指标：Sharpe、平均换手、平均成本 bps、平均/最大总敞口。
+- C++ 策略指标滚动计算，以及可配置的最大回撤采样步长。
+- 文件版实验归档、参数扫描、Walk-forward 验证和 `/experiments` 页面。
 - Agent 会话。
 
 ### P1 研究可用
 
 目标：
 
-- Experiment Tracker。
-- 参数扫描。
-- 实验对比 UI。
+- 实验对比 UI 增强。
 - 数据质量报告。
-- 指标扩展：Sharpe、turnover、cost、exposure。
+- Walk-forward 验证增强：支持多参数组合、固定数据集 ID 和样本内/样本外图表。
 
 验收：
 
@@ -786,7 +859,7 @@ risk_events
 
 目标：
 
-- paper runtime。
+- OKX simulated trading runtime。
 - 实时行情接入。
 - OMS 状态恢复。
 - 对账。
@@ -794,7 +867,9 @@ risk_events
 
 验收：
 
-- paper 连续运行不丢订单状态。
+- `/live` 能连接 OKX simulated trading 账户并读取余额、现货委托和订单状态。
+- `/crypto` 能读取 OKX BTC、ETH、XAUT 行情；`/live` 能读取 OKX 余额和当前委托。
+- paper 连续运行不丢本地订单状态，并能把新生成的合格 SPOT/cash `post_only` 委托提交到 OKX 模拟盘。
 - 风控触发能阻断订单。
 - 对账差异可见。
 
@@ -819,16 +894,13 @@ risk_events
 
 建议下一步按这个顺序做：
 
-1. `ExperimentTracker` 文件版实现。
-2. `/experiments` 页面。
-3. 扩展 report metrics：Sharpe、turnover、cost bps、exposure。
-4. 参数扫描 job。
-5. 数据质量 job。
-6. 风控中心页面。
-7. 成本/滑点模型模块化。
-8. paper runtime。
+1. 缩小高频状态接口返回面，避免 UI 轮询传输 runner 内部大对象。
+2. 数据质量 job。
+3. 风控中心页面继续细化自动化门禁、冻结和告警。
+4. 成本/滑点/成交模型模块化，并用 OKX 模拟盘审计样本校准。
+5. Walk-forward 多参数组合和图表增强。
 
-这个顺序的理由：先把研究闭环和可复现性做出来，再提升回测真实性，最后接近交易执行。
+这个顺序的理由：先让逐笔虚拟盘长时间运行时保持轻量、可观察和可恢复，再继续补数据质量、风控门禁和执行模型校准。
 
 ## 12. 参考
 

@@ -1,29 +1,9 @@
 #pragma once
-
-#include <memory>
-#include <span>
-#include <vector>
-
-#include "qt/execution.hpp"
+#include "qt/execution/oms.hpp"
+#include "qt/execution/order.hpp"
 
 namespace qt {
-
-class OrderManagementSystem {
-public:
-    explicit OrderManagementSystem(std::unique_ptr<IBrokerGateway> broker_gateway);
-
-    std::vector<OrderRecord> submit_orders(std::span<const OrderIntent> orders);
-    void cancel_open_orders();
-    void on_market_snapshot(std::span<const Bar> bars);
-    std::vector<ExecutionReport> collect_reports();
-
-    const std::vector<OrderRecord>& order_history() const noexcept;
-
-private:
-    OrderRecord* find_order(const std::string& order_id);
-
-    std::unique_ptr<IBrokerGateway> broker_gateway_;
-    std::vector<OrderRecord> order_history_;
-};
-
+using qt::execution::OrderManagementSystem;
+using qt::execution::OmsOrderRecord;
+using qt::execution::IBrokerGateway;
 }  // namespace qt

@@ -1,5 +1,6 @@
 #include "qt/strategy_module.hpp"
 
+#include "qt/agent/llm_feature_agent.hpp"
 #include "qt/runtime_config.hpp"
 
 #include <functional>
@@ -20,8 +21,6 @@ const RuntimeConfig& default_config() {
 }
 
 const std::vector<StrategyRegistration>& strategy_registry() {
-    // 策略注册表是策略模块的中心目录。
-    // 新增策略时先补 descriptor，再补 build，避免工厂逻辑散落在业务代码里。
     static const std::vector<StrategyRegistration> registry{
         {{"momentum",
           "动量基线",
@@ -77,6 +76,82 @@ const std::vector<StrategyRegistration>& strategy_registry() {
                  config.strategy_macd_slow_alpha,
                  config.strategy_macd_signal_alpha);
          }},
+        {{"ema_slope_trend",
+          "EMA 斜率趋势",
+          StrategyStyle::Trend,
+          "日频/分钟",
+          "用递推 EMA 斜率识别短周期趋势方向。",
+          true},
+         [](const RuntimeConfig& config) {
+             return std::make_unique<EmaSlopeTrendAgent>(
+                 config.strategy_ema_slope_alpha,
+                 config.strategy_ema_slope_min_slope);
+         }},
+        {{"keltner_breakout",
+          "Keltner 通道突破",
+          StrategyStyle::Trend,
+          "日频/分钟",
+          "用上一周期 EMA 与 ATR 通道判断突破。",
+          true},
+         [](const RuntimeConfig& config) {
+             return std::make_unique<KeltnerBreakoutAgent>(
+                 config.strategy_keltner_alpha,
+                 config.strategy_keltner_multiplier);
+         }},
+        {{"volume_spike_momentum",
+          "量能放大动量",
+          StrategyStyle::Trend,
+          "分钟",
+          "成交量显著高于递推均量时跟随同向价格变动。",
+          true},
+         [](const RuntimeConfig& config) {
+             return std::make_unique<VolumeSpikeMomentumAgent>(
+                 config.strategy_volume_spike_alpha,
+                 config.strategy_volume_spike_multiplier);
+         }},
+        {{"micro_scalper",
+          "微结构剥头皮",
+          StrategyStyle::Hybrid,
+          "分钟/高频",
+          "用分钟 bar 的实体、区间和相邻收盘收益代理短周期冲击方向。",
+          true},
+         [](const RuntimeConfig& config) {
+             return std::make_unique<MicroScalperAgent>(
+                 config.strategy_micro_scalper_min_return,
+                 config.strategy_micro_scalper_min_body_ratio);
+         }},
+        {{"spread_capture_maker",
+          "价差捕获做市",
+          StrategyStyle::Hybrid,
+          "分钟/做市",
+          "用 fair price EMA 和 bar 区间代理中轴与价差，价格偏离时做反向信号。",
+          true},
+         [](const RuntimeConfig& config) {
+             return std::make_unique<SpreadCaptureMakerAgent>(
+                 config.strategy_spread_capture_alpha,
+                 config.strategy_spread_capture_threshold);
+         }},
+        {{"order_flow_imbalance",
+          "订单流失衡",
+          StrategyStyle::Hybrid,
+          "分钟/高频",
+          "用收盘位置和成交量放大代理主动买卖压力。",
+          true},
+         [](const RuntimeConfig& config) {
+             return std::make_unique<OrderFlowImbalanceAgent>(
+                 config.strategy_order_flow_volume_alpha,
+                 config.strategy_order_flow_imbalance_threshold);
+         }},
+        {{"inventory_skew_maker",
+          "库存倾斜做市",
+          StrategyStyle::Hybrid,
+          "分钟/做市",
+          "根据当前持仓权重输出反向信号，模拟做市商控制库存回到中性。",
+          true},
+         [](const RuntimeConfig& config) {
+             return std::make_unique<InventorySkewMakerAgent>(
+                 config.strategy_inventory_skew_neutral_band);
+         }},
         {{"bollinger_reversion",
           "布林带反转",
           StrategyStyle::MeanReversion,
@@ -100,6 +175,17 @@ const std::vector<StrategyRegistration>& strategy_registry() {
                  config.strategy_rsi_oversold,
                  config.strategy_rsi_overbought);
          }},
+        {{"zscore_reversion",
+          "Z-score 反转",
+          StrategyStyle::MeanReversion,
+          "日频/分钟",
+          "价格偏离滚动均值超过阈值时做轻量反向信号。",
+          true},
+         [](const RuntimeConfig& config) {
+             return std::make_unique<ZScoreReversionAgent>(
+                 static_cast<std::size_t>(config.strategy_zscore_window),
+                 config.strategy_zscore_threshold);
+         }},
         {{"range_fade",
           "区间边缘反转",
           StrategyStyle::MeanReversion,
@@ -107,6 +193,14 @@ const std::vector<StrategyRegistration>& strategy_registry() {
           "收盘靠近日内区间边缘时押注回到区间内部。",
           true},
          [](const RuntimeConfig&) { return std::make_unique<RangeFadeAgent>(); }},
+        // GAP-037: LLM 特征推理智能体
+        {{"llm_feature",
+          "LLM 特征推理",
+          StrategyStyle::Hybrid,
+          "可变",
+          "通过多维特征交互分析和异常检测生成交易信号，模拟 LLM in-context reasoning。",
+          false},  // 默认关闭，需显式配置启用
+         [](const RuntimeConfig&) { return std::make_unique<agent::LLMFeatureAgent>(); }},
     };
     return registry;
 }
@@ -166,8 +260,6 @@ std::vector<std::unique_ptr<ISignalAgent>> make_signal_agents(
 
 std::vector<std::unique_ptr<ISignalAgent>> make_signal_agents(
     const RuntimeConfig& config) {
-    // 所有策略实例在这里创建，主程序只依赖 strategy.enabled。
-    // unknown id 直接报错，避免配置拼写错误悄悄被忽略。
     const auto ids = config.strategy_ids.empty() ? default_strategy_ids() : config.strategy_ids;
     std::vector<std::unique_ptr<ISignalAgent>> agents;
     agents.reserve(ids.size());

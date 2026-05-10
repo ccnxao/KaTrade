@@ -2,11 +2,22 @@
 .vscode/
 
 quant-system/traderd
+quant-system/backendd
 quant-system/replay_check
 quant-system/option_demo
 quant-system/pricing_check
+quant-system/account_read_model_check
+quant-system/execution_model_check
+quant-system/order_maintenance_check
+quant-system/ops_check
+quant-system/execution_policy_check
+quant-system/okx_policy
+quant-system/realtime_engine
+quant-system/realtime_engine_check
+quant-system/*.o
 quant-system/build/
 quant-system/logs/
+quant-system/.tools/
 
 # Local private config and API keys. Keep real credentials off GitHub.
 quant-system/.env
